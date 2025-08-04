@@ -1,0 +1,163 @@
+/* Voice Agent Day 1 - Minimal Clean Design */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.header-card {
+    background: white;
+    padding: 30px 40px;
+    border-radius: 15px;
+    box-shadow: 0 15px 35px rgba(30, 60, 114, 0.2);
+    text-align: center;
+    margin-bottom: 30px;
+    min-width: 400px;
+}
+
+.challenge-title {
+    font-size: 1.8rem;
+    color: #1e3c72;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.day-subtitle {
+    color: #5a6c7d;
+    font-size: 1rem;
+    font-weight: 400;
+}
+
+.main-card {
+    background: white;
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 15px 35px rgba(30, 60, 114, 0.2);
+    text-align: center;
+    min-width: 400px;
+    max-width: 500px;
+}
+
+.status-title {
+    font-size: 1.4rem;
+    color: #1e3c72;
+    margin-bottom: 15px;
+    font-weight: 500;
+}
+
+.description {
+    color: #5a6c7d;
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+
+.action-btn {
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    border-radius: 25px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin: 10px;
+    box-shadow: 0 4px 15px rgba(30, 60, 114, 0.3);
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(30, 60, 114, 0.4);
+}
+
+.success-message {
+    background: #d4edda;
+    color: #155724;
+    padding: 15px 20px;
+    border-radius: 10px;
+    margin: 20px 0;
+    border-left: 4px solid #28a745;
+    font-weight: 500;
+    display: none;
+}
+
+.success-message.show {
+    display: block;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.tech-stack {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #ecf0f1;
+}
+
+.tech-title {
+    font-size: 0.9rem;
+    color: #5a6c7d;
+    margin-bottom: 10px;
+    font-weight: 500;
+}
+
+.tech-items {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.tech-item {
+    background: #f1f3f4;
+    color: #1e3c72;
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    border: 1px solid #e1e5e9;
+}
+
+@media (max-width: 600px) {
+    .header-card,
+    .main-card {
+        min-width: auto;
+        width: 100%;
+        padding: 25px;
+    }
+    
+    .challenge-title {
+        font-size: 1.5rem;
+    }
+    
+    .action-btn {
+        display: block;
+        width: 100%;
+        margin: 10px 0;
+    }
+    
+    .tech-items {
+        justify-content: center;
+    }
+}
