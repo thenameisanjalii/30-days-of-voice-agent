@@ -3,6 +3,8 @@ from pydantic import BaseModel
 import os
 from murf import Murf
 from dotenv import load_dotenv
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 load_dotenv()
 
@@ -10,21 +12,15 @@ client = Murf(api_key=os.getenv("MURF_API_KEY"))
 
 app = FastAPI()
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 class TextInput(BaseModel):
     text: str
 
 @app.get("/")
-async def root():
-    return {"message": "Voice Agent API is running!", "status": "Day 1 Complete"}
+async def serve_ui():
+    return FileResponse("templates/index.html")  # Changed from "static/index.html"
 
-@app.get("/test-config")
-async def test_config():
-    api_key = os.getenv("MURF_API_KEY")
-    return {
-        "api_key_loaded": bool(api_key),
-        "api_key_length": len(api_key) if api_key else 0,
-        "api_key_prefix": api_key[:10] + "..." if api_key else "Not found"
-    }
 @app.post("/generate-audio")
 async def generate_audio(input: TextInput):
     res = client.text_to_speech.generate(
@@ -37,4 +33,6 @@ async def generate_audio(input: TextInput):
         "audio_url": res.audio_file
     }
 
-
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000)  # Remove reload=True

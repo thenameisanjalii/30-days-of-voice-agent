@@ -1,37 +1,40 @@
 console.log("🎤 Voice Agent Day 1 - System Ready!");
 
-// Simple functions for Day 1 interactions
-
-function checkStatus() {
-    console.log("Checking system status...");
+async function submitText() {
+    const text = document.getElementById('ttsInput').value.trim();
+    const audioPlayer = document.getElementById('audioPlayer');
+    const button = document.querySelector('.action-btn');
     
-    const messageElement = document.getElementById('statusMessage');
-    messageElement.classList.add('show');
+    if (!text) {
+        alert('Please enter text!');
+        return;
+    }
     
-    // Hide message after 3 seconds
-    setTimeout(() => {
-        messageElement.classList.remove('show');
-    }, 3000);
+    // Show loading
+    button.disabled = true;
+    button.textContent = 'Loading...';
     
-    console.log("✅ Status check complete - All systems operational!");
-}
-
-function showProgress() {
-    console.log("Displaying progress information...");
-    
-    const progressInfo = `
-📊 Challenge Progress:
-• Day 1/30 Completed
-• Foundation: ✅ Complete
-• Backend: ✅ Flask Running  
-• Frontend: ✅ Connected
-• Next Step: Day 2 - Voice Input
-
-🚀 Ready to build amazing voice applications!
-    `;
-    
-    alert(progressInfo);
-    console.log("Progress information displayed");
+    try {
+        const response = await fetch('/generate-audio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: text })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.audio_url) {
+            audioPlayer.src = data.audio_url;
+            audioPlayer.style.display = 'block';
+            audioPlayer.load();
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    } finally {
+        // Reset button
+        button.disabled = false;
+        button.textContent = 'Generate Audio';
+    }
 }
 
 // Initialize when page loads

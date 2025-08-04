@@ -1,41 +1,45 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Voice Agent - Day 1</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
-<body>
+    <link rel="stylesheet" href="/static/css/style.css" />
+  </head>
+  <body>
     <div class="header-card">
-        <div class="challenge-title">Voice Agent Development</div>
-        <div class="day-subtitle">Day 01/30 - Project Foundation</div>
+      <div class="challenge-title">Voice Agent Development</div>
+      <div class="day-subtitle">Day 3/30 Complete ✅</div>
     </div>
 
     <div class="main-card">
-        <div class="status-title">Setup Complete ✅</div>
-        <div class="description">
-            Flask backend is running and frontend is connected successfully.
-        </div>
+      <div class="status-title">Ready to Generate 🚀</div>
 
-        <button class="action-btn" onclick="checkStatus()">Verify Setup</button>
-        <button class="action-btn" onclick="showProgress()">View Progress</button>
+      <div class="tts-section">
+        <input
+          type="text"
+          id="ttsInput"
+          placeholder="Enter text to generate audio"
+          class="tts-input"
+        />
+        <button class="action-btn" onclick="submitText()">
+          Generate Audio
+        </button>
+        <audio id="audioPlayer" controls></audio>
+        </audio>
+      </div>
 
-        <div id="statusMessage" class="success-message">
-            🎉 All systems operational! Ready for Day 2 development.
+      <div class="tech-stack">
+        <div class="tech-title">Technology Stack</div>
+        <div class="tech-items">
+          <span class="tech-item">FastAPI</span>
+          <span class="tech-item">HTML5</span>
+          <span class="tech-item">CSS3</span>
+          <span class="tech-item">JavaScript</span>
         </div>
-
-        <div class="tech-stack">
-            <div class="tech-title">Technology Stack</div>
-            <div class="tech-items">
-                <span class="tech-item">Flask</span>
-                <span class="tech-item">HTML5</span>
-                <span class="tech-item">CSS3</span>
-                <span class="tech-item">JavaScript</span>
-            </div>
-        </div>
+      </div>
     </div>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
-</body>
+    <script src="/static/script.js"></script>
+  </body>
 </html>

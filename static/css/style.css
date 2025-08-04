@@ -57,56 +57,51 @@ body {
     font-weight: 500;
 }
 
-.description {
-    color: #5a6c7d;
-    margin-bottom: 30px;
-    line-height: 1.6;
+.tts-section {
+    margin: 20px 0;
+}
+
+.tts-input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e1e5e9;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    font-size: 16px;
 }
 
 .action-btn {
-    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    background: #1e3c72;
     color: white;
     border: none;
-    padding: 15px 30px;
-    border-radius: 25px;
-    font-size: 1rem;
-    font-weight: 500;
+    padding: 12px 24px;
+    border-radius: 8px;
     cursor: pointer;
-    transition: all 0.3s ease;
-    margin: 10px;
-    box-shadow: 0 4px 15px rgba(30, 60, 114, 0.3);
+    font-size: 16px;
 }
 
 .action-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(30, 60, 114, 0.4);
+    background: #2a5298;
+}
+
+.action-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+#audioPlayer {
+    width: 100%;
+    margin-top: 15px;
+    display: none;
 }
 
 .success-message {
     background: #d4edda;
     color: #155724;
-    padding: 15px 20px;
-    border-radius: 10px;
-    margin: 20px 0;
-    border-left: 4px solid #28a745;
-    font-weight: 500;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 15px 0;
     display: none;
-}
-
-.success-message.show {
-    display: block;
-    animation: slideDown 0.3s ease;
-}
-
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
 }
 
 .tech-stack {
