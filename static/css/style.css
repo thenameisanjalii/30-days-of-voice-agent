@@ -17,29 +17,6 @@ body {
     padding: 20px;
 }
 
-.header-card {
-    background: white;
-    padding: 30px 40px;
-    border-radius: 15px;
-    box-shadow: 0 15px 35px rgba(30, 60, 114, 0.2);
-    text-align: center;
-    margin-bottom: 30px;
-    min-width: 400px;
-}
-
-.challenge-title {
-    font-size: 1.8rem;
-    color: #1e3c72;
-    font-weight: 600;
-    margin-bottom: 8px;
-}
-
-.day-subtitle {
-    color: #5a6c7d;
-    font-size: 1rem;
-    font-weight: 400;
-}
-
 .main-card {
     background: white;
     padding: 40px;
@@ -53,6 +30,24 @@ body {
 .status-title {
     font-size: 1.4rem;
     color: #1e3c72;
+    margin-bottom: 15px;
+    font-weight: 500;
+}
+
+.feature-card {
+    background: white;
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 15px 35px rgba(30, 60, 114, 0.2);
+    text-align: center;
+    min-width: 400px;
+    max-width: 500px;
+    margin-bottom: 30px;
+}
+
+.feature-card h2 {
+    color: #1e3c72;
+    font-size: 1.4rem;
     margin-bottom: 15px;
     font-weight: 500;
 }
@@ -104,34 +99,102 @@ body {
     display: none;
 }
 
-.tech-stack {
-    margin-top: 25px;
-    padding-top: 20px;
-    border-top: 1px solid #ecf0f1;
+/* Echo Bot Section */
+.echo-section {
+    margin: 3px 0;
+    padding: 5px;
+    text-align: center;
 }
 
-.tech-title {
-    font-size: 0.9rem;
-    color: #5a6c7d;
-    margin-bottom: 10px;
-    font-weight: 500;
+h1 {
+    font-size: 24px;
+    text-align: center;
 }
 
-.tech-items {
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-    flex-wrap: wrap;
+#startBtn, #stopBtn {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    margin: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.3s ease;
 }
 
-.tech-item {
-    background: #f1f3f4;
-    color: #1e3c72;
-    padding: 6px 12px;
-    border-radius: 15px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    border: 1px solid #e1e5e9;
+#startBtn:hover {
+    background: #45a049;
+}
+
+#stopBtn {
+    background: #f44336;
+}
+
+#stopBtn:hover {
+    background: #da190b;
+}
+
+#startBtn:disabled, #stopBtn:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+#echoAudio {
+    width: 100%;
+    margin-top: 20px;
+    border-radius: 8px;
+}
+
+#uploadStatus {
+    margin-top: 15px;
+    padding: 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    text-align: center;
+    font-weight: bold;
+}
+
+/* Transcription Display */
+.transcription-result {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 15px;
+    color: #495057;
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+/* Conversation Cards */
+.conversation-card {
+    background: white;
+    border-radius: 10px;
+    padding: 15px;
+    margin: 10px 0;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    border-left: 4px solid;
+    font-size: 14px;
+    line-height: 1.4;
+    text-align: left;
+}
+
+.user-card {
+    border-left-color: #1e3c72; 
+    background: #f8f9fa;
+}
+
+.bot-card {
+    border-left-color: #28a745;
+    background: #f0f8f0;
+}
+
+.conversation-card strong {
+    color: #333;
+    font-weight: 600;
 }
 
 @media (max-width: 600px) {
@@ -150,9 +213,5 @@ body {
         display: block;
         width: 100%;
         margin: 10px 0;
-    }
-    
-    .tech-items {
-        justify-content: center;
     }
 }

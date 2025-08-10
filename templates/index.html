@@ -3,18 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Voice Agent - Day 1</title>
+    <title>Voice Agent - Day 5</title>
     <link rel="stylesheet" href="/static/css/style.css" />
   </head>
   <body>
-    <div class="header-card">
-      <div class="challenge-title">Voice Agent Development</div>
-      <div class="day-subtitle">Day 3/30 Complete ✅</div>
-    </div>
-
-    <div class="main-card">
-      <div class="status-title">Ready to Generate 🚀</div>
-
+    
+    <!-- Text-to-Speech Section -->
+    <div class="feature-card">
+      <h2>🎵 Text-to-Speech</h2>
       <div class="tts-section">
         <input
           type="text"
@@ -25,18 +21,17 @@
         <button class="action-btn" onclick="submitText()">
           Generate Audio
         </button>
-        <audio id="audioPlayer" controls></audio>
-        </audio>
+        <audio id="audioPlayer" controls style="display:none"></audio>
       </div>
+    </div>
 
-      <div class="tech-stack">
-        <div class="tech-title">Technology Stack</div>
-        <div class="tech-items">
-          <span class="tech-item">FastAPI</span>
-          <span class="tech-item">HTML5</span>
-          <span class="tech-item">CSS3</span>
-          <span class="tech-item">JavaScript</span>
-        </div>
+    <!-- Echo Bot Section -->
+    <div class="feature-card">
+      <h2>🎤 Echo Bot</h2>
+      <div class="echo-section">
+        <button id="startBtn">Start Recording</button>
+        <button id="stopBtn" disabled>Stop Recording</button>
+        <audio id="echoAudio" controls style="display:none"></audio>
       </div>
     </div>
 
