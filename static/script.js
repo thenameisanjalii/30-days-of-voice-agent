@@ -1,4 +1,16 @@
-console.log("🎤 Voice Agent Day 1 - System Ready!");
+// console.log("🎤 Voice Agent Day 1 - System Ready!");
+
+function getSessionId() {
+  const params = new URLSearchParams(window.location.search);
+  let sessionId = params.get("session_id");
+  if (!sessionId) {
+    sessionId = Math.random().toString(36).substring(2, 12);
+    params.set("session_id", sessionId);
+    window.location.search = params.toString();
+  }
+  return sessionId;
+}
+const sessionId = getSessionId();
 
 async function submitText() {
   const text = document.getElementById("ttsInput").value.trim();
@@ -66,9 +78,8 @@ startBtn.onclick = async () => {
 
     const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
 
-    // Send audio to /llm/query
-    await llmAudioQuery(audioBlob);
-};
+    await agentChatQuery(audioBlob, sessionId);
+  };
 
   mediaRecorder.start();
   startBtn.disabled = true;
@@ -82,84 +93,190 @@ stopBtn.onclick = () => {
 };
 
 // Your uploadAudio function stays the same
-async function uploadAudio(audioBlob) {
-  // Create unique filename with timestamp
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const filename = `recording_${timestamp}.wav`;
+// async function uploadAudio(audioBlob) {
+//   // Create unique filename with timestamp
+//   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+//   const filename = `recording_${timestamp}.wav`;
 
-  const formData = new FormData();
-  formData.append("file", audioBlob, filename);
+//   const formData = new FormData();
+//   formData.append("file", audioBlob, filename);
 
-  // Show upload status
-  const statusDiv = document.createElement("div");
-  statusDiv.id = "uploadStatus";
-  statusDiv.textContent = "Uploading audio...";
-  statusDiv.style.color = "yellow";
-  document.querySelector(".echo-section").appendChild(statusDiv);
+//   // Show upload status
+//   const statusDiv = document.createElement("div");
+//   statusDiv.id = "uploadStatus";
+//   statusDiv.textContent = "Uploading audio...";
+//   statusDiv.style.color = "yellow";
+//   document.querySelector(".echo-section").appendChild(statusDiv);
 
-  try {
-    const response = await fetch("/upload-audio", {
-      method: "POST",
-      body: formData,
-    });
+//   try {
+//     const response = await fetch("/upload-audio", {
+//       method: "POST",
+//       body: formData,
+//     });
 
-    const data = await response.json();
+//     const data = await response.json();
 
-    if (data.success) {
-      statusDiv.textContent = `✅ Uploaded: ${data.filename} (${data.size} bytes)`;
-      statusDiv.style.color = "lightgreen";
-    }
-  } catch (error) {
-    statusDiv.textContent = "❌ Upload failed: " + error.message;
-    statusDiv.style.color = "red";
-  }
-}
+//     if (data.success) {
+//       statusDiv.textContent = `✅ Uploaded: ${data.filename} (${data.size} bytes)`;
+//       statusDiv.style.color = "lightgreen";
+//     }
+//   } catch (error) {
+//     statusDiv.textContent = "❌ Upload failed: " + error.message;
+//     statusDiv.style.color = "red";
+//   }
+// }
 
-async function transcribeAudio(audioBlob) {
-  const formData = new FormData();
-  formData.append("file", audioBlob, "recording.wav");
+// async function transcribeAudio(audioBlob) {
+//   const formData = new FormData();
+//   formData.append("file", audioBlob, "recording.wav");
 
-  try {
-    console.log("Sending request to /transcribe/file"); // Add this
+//   try {
+//     console.log("Sending request to /transcribe/file"); // Add this
 
-    const response = await fetch("/transcribe/file", {
-      method: "POST",
-      body: formData,
-    });
+//     const response = await fetch("/transcribe/file", {
+//       method: "POST",
+//       body: formData,
+//     });
 
-    const data = await response.json();
-    console.log("Response data:", data); // Add this
+//     const data = await response.json();
+//     console.log("Response data:", data); // Add this
 
-    // Remove previous transcription
-    const oldTranscript = document.querySelector(".transcription-result");
-    if (oldTranscript) oldTranscript.remove();
+//     // Remove previous transcription
+//     const oldTranscript = document.querySelector(".transcription-result");
+//     if (oldTranscript) oldTranscript.remove();
 
-    // Show transcription
-    const transcriptDiv = document.createElement("div");
-    transcriptDiv.className = "transcription-result";
-    transcriptDiv.textContent = `Transcription: ${data.transcription}`;
-    document.querySelector(".echo-section").appendChild(transcriptDiv);
-  } catch (error) {
-    console.error("Transcription error:", error); // Add this
-    alert("Transcription failed: " + error.message);
-  }
-}
+//     // Show transcription
+//     const transcriptDiv = document.createElement("div");
+//     transcriptDiv.className = "transcription-result";
+//     transcriptDiv.textContent = `Transcription: ${data.transcription}`;
+//     document.querySelector(".echo-section").appendChild(transcriptDiv);
+//   } catch (error) {
+//     console.error("Transcription error:", error); // Add this
+//     alert("Transcription failed: " + error.message);
+//   }
+// }
 
-async function echoWithMurf(audioBlob) {
+// async function echoWithMurf(audioBlob) {
+//   const formData = new FormData();
+//   formData.append("file", audioBlob, "recording.wav");
+
+//   // Show processing status
+//   const statusDiv = document.createElement("div");
+//   statusDiv.id = "processingStatus";
+//   statusDiv.textContent = "🔄 Processing with Murf AI...";
+//   statusDiv.style.color = "orange";
+//   statusDiv.style.fontWeight = "bold";
+//   statusDiv.style.marginTop = "10px";
+//   document.querySelector(".echo-section").appendChild(statusDiv);
+
+//   try {
+//     const response = await fetch("/tts/echo", {
+//       method: "POST",
+//       body: formData,
+//     });
+
+//     const data = await response.json();
+
+//     // Remove processing status
+//     const processingStatus = document.getElementById("processingStatus");
+//     if (processingStatus) processingStatus.remove();
+
+//     if (data.success) {
+//       // Remove previous results
+//       const oldTranscript = document.querySelector(".transcription-result");
+//       if (oldTranscript) oldTranscript.remove();
+
+//       // Show transcription
+//       const transcriptDiv = document.createElement("div");
+//       transcriptDiv.textContent = `You said: "${data.transcription}"`;
+//       transcriptDiv.className = "transcription-result";
+//       document.querySelector(".echo-section").appendChild(transcriptDiv);
+
+//       // Play Murf audio
+//       echoAudio.src = data.audio_url;
+//       echoAudio.style.display = "block";
+//       echoAudio.load();
+//       echoAudio.play();
+//     }
+//   } catch (error) {
+//     // Remove processing status on error
+//     const processingStatus = document.getElementById("processingStatus");
+//     if (processingStatus) processingStatus.remove();
+
+//     alert("Echo failed: " + error.message);
+//   }
+// }
+
+// async function llmAudioQuery(audioBlob) {
+//   const formData = new FormData();
+//   formData.append("file", audioBlob, "recording.wav");
+
+//   // Show processing status
+//   const statusDiv = document.createElement("div");
+//   statusDiv.id = "processingStatus";
+//   statusDiv.textContent = "🔄 Processing with LLM and Murf AI...";
+//   statusDiv.style.color = "orange";
+//   statusDiv.style.fontWeight = "bold";
+//   statusDiv.style.marginTop = "10px";
+//   document.querySelector(".echo-section").appendChild(statusDiv);
+
+//   try {
+//     const response = await fetch("/llm/query", {
+//       method: "POST",
+//       body: formData,
+//     });
+
+//     const data = await response.json();
+
+//     // Remove processing status
+//     const processingStatus = document.getElementById("processingStatus");
+//     if (processingStatus) processingStatus.remove();
+
+//     if (data.success) {
+//       // Remove previous results
+//       const oldResults = document.querySelectorAll(".conversation-card");
+//       oldResults.forEach((card) => card.remove());
+
+//       // Create user card
+//       const userCard = document.createElement("div");
+//       userCard.className = "conversation-card user-card";
+//       userCard.innerHTML = `<strong>You:</strong> ${data.transcription}`;
+//       document.querySelector(".echo-section").appendChild(userCard);
+
+//       // Create bot card
+//       const botCard = document.createElement("div");
+//       botCard.className = "conversation-card bot-card";
+//       botCard.innerHTML = `<strong>Bot:</strong> ${data.llm_response}`;
+//       document.querySelector(".echo-section").appendChild(botCard);
+
+//       // Play Murf audio
+//       echoAudio.src = data.audio_url;
+//       echoAudio.style.display = "block";
+//       echoAudio.load();
+//       echoAudio.play();
+//     }
+//   } catch (error) {
+//     const processingStatus = document.getElementById("processingStatus");
+//     if (processingStatus) processingStatus.remove();
+//     alert("LLM/Murf failed: " + error.message);
+//   }
+// }
+
+async function agentChatQuery(audioBlob, sessionId) {
   const formData = new FormData();
   formData.append("file", audioBlob, "recording.wav");
 
   // Show processing status
   const statusDiv = document.createElement("div");
   statusDiv.id = "processingStatus";
-  statusDiv.textContent = "🔄 Processing with Murf AI...";
+  statusDiv.textContent = "🔄 Processing conversation...";
   statusDiv.style.color = "orange";
   statusDiv.style.fontWeight = "bold";
   statusDiv.style.marginTop = "10px";
   document.querySelector(".echo-section").appendChild(statusDiv);
 
   try {
-    const response = await fetch("/tts/echo", {
+    const response = await fetch(`/agent/chat/${sessionId}`, {
       method: "POST",
       body: formData,
     });
@@ -172,81 +289,35 @@ async function echoWithMurf(audioBlob) {
 
     if (data.success) {
       // Remove previous results
-      const oldTranscript = document.querySelector(".transcription-result");
-      if (oldTranscript) oldTranscript.remove();
+      const oldResults = document.querySelectorAll(".conversation-card");
+      oldResults.forEach((card) => card.remove());
 
-      // Show transcription
-      const transcriptDiv = document.createElement("div");
-      transcriptDiv.textContent = `You said: "${data.transcription}"`;
-      transcriptDiv.className = "transcription-result";
-      document.querySelector(".echo-section").appendChild(transcriptDiv);
+      // Show full chat history
+      data.history.forEach((msg) => {
+        const card = document.createElement("div");
+        card.className =
+          "conversation-card " +
+          (msg.role === "user" ? "user-card" : "bot-card");
+        card.innerHTML = `<strong>${
+          msg.role === "user" ? "You" : "Bot"
+        }:</strong> ${msg.content}`;
+        document.querySelector(".echo-section").appendChild(card);
+      });
 
       // Play Murf audio
       echoAudio.src = data.audio_url;
       echoAudio.style.display = "block";
       echoAudio.load();
       echoAudio.play();
+
+      // Auto-start recording after audio ends
+      echoAudio.onended = () => {
+        startBtn.click();
+      };
     }
   } catch (error) {
-    // Remove processing status on error
     const processingStatus = document.getElementById("processingStatus");
     if (processingStatus) processingStatus.remove();
-    
-    alert("Echo failed: " + error.message);
+    alert("Conversation failed: " + error.message);
   }
-}
-
-async function llmAudioQuery(audioBlob) {
-    const formData = new FormData();
-    formData.append("file", audioBlob, "recording.wav");
-
-    // Show processing status
-    const statusDiv = document.createElement("div");
-    statusDiv.id = "processingStatus";
-    statusDiv.textContent = "🔄 Processing with LLM and Murf AI...";
-    statusDiv.style.color = "orange";
-    statusDiv.style.fontWeight = "bold";
-    statusDiv.style.marginTop = "10px";
-    document.querySelector(".echo-section").appendChild(statusDiv);
-
-    try {
-        const response = await fetch("/llm/query", {
-            method: "POST",
-            body: formData,
-        });
-
-        const data = await response.json();
-
-        // Remove processing status
-        const processingStatus = document.getElementById("processingStatus");
-        if (processingStatus) processingStatus.remove();
-
-        if (data.success) {
-            // Remove previous results
-            const oldResults = document.querySelectorAll(".conversation-card");
-            oldResults.forEach(card => card.remove());
-
-            // Create user card
-            const userCard = document.createElement("div");
-            userCard.className = "conversation-card user-card";
-            userCard.innerHTML = `<strong>You:</strong> ${data.transcription}`;
-            document.querySelector(".echo-section").appendChild(userCard);
-
-            // Create bot card
-            const botCard = document.createElement("div");
-            botCard.className = "conversation-card bot-card";
-            botCard.innerHTML = `<strong>Bot:</strong> ${data.llm_response}`;
-            document.querySelector(".echo-section").appendChild(botCard);
-
-            // Play Murf audio
-            echoAudio.src = data.audio_url;
-            echoAudio.style.display = "block";
-            echoAudio.load();
-            echoAudio.play();
-        }
-    } catch (error) {
-        const processingStatus = document.getElementById("processingStatus");
-        if (processingStatus) processingStatus.remove();
-        alert("LLM/Murf failed: " + error.message);
-    }
 }
