@@ -23,29 +23,10 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 class TextInput(BaseModel):
     text: str
 
-# os.makedirs("uploads", exist_ok=True)
 
 @app.get("/")
 async def serve_ui():
     return FileResponse("templates/index.html")  
-
-# @app.post("/upload-audio")
-# async def upload_audio(file: UploadFile = File(...)):
-#     # Save file to uploads folder
-#     file_path = f"uploads/{file.filename}"
-#     with open(file_path, "wb") as buffer:
-#         shutil.copyfileobj(file.file, buffer)
-    
-#     # Get file size
-#     file_size = os.path.getsize(file_path)
-    
-#     return {
-#         "success": True,
-#         "filename": file.filename,
-#         "content_type": file.content_type,
-#         "size": file_size,
-#         "message": "Audio uploaded successfully!"
-#     }
 
 @app.post("/generate-audio")
 async def generate_audio(input: TextInput):
@@ -59,106 +40,103 @@ async def generate_audio(input: TextInput):
         "audio_url": res.audio_file
     }
 
-# @app.post("/transcribe/file")
-# async def transcribe_file(file: UploadFile = File(...)):
-#     transcriber = aai.Transcriber()
-#     audio_data = await file.read()
-#     transcript = transcriber.transcribe(audio_data)
-    
-#     return {
-#         "success": True,
-#         "transcription": transcript.text
-#     }
-
-# @app.post("/tts/echo")
-# async def tts_echo(file: UploadFile = File(...)):
-#     # Transcribe audio
-#     transcriber = aai.Transcriber()
-#     audio_data = await file.read()
-#     transcript = transcriber.transcribe(audio_data)
-    
-#     # Generate Murf audio
-#     res = client.text_to_speech.generate(
-#         text=transcript.text,
-#         voice_id="en-US-terrell"
-#     )
-    
-#     return {
-#         "success": True,
-#         "transcription": transcript.text,
-#         "audio_url": res.audio_file
-#     }
-
 class LLMInput(BaseModel):
     text: str
 
-# @app.post("/llm/query")
-# async def llm_query(file: UploadFile = File(...)):
-#     # Transcribe audio
-#     transcriber = aai.Transcriber()
-#     audio_data = await file.read()
-#     transcript = transcriber.transcribe(audio_data)
-    
-#     # Get LLM response
-#     model = genai.GenerativeModel("gemini-1.5-flash")
-#     llm_response = model.generate_content(transcript.text)
-#     llm_text = llm_response.text[:3000]  # Murf API limit
-    
-#     # Generate Murf audio
-#     res = client.text_to_speech.generate(
-#         text=llm_text,
-#         voice_id="en-US-terrell"
-#     )
-    
-#     return {
-#         "success": True,
-#         "transcription": transcript.text,
-#         "llm_response": llm_text,
-#         "audio_url": res.audio_file
-#     }
-
 @app.post("/agent/chat/{session_id}")
 async def agent_chat(session_id: str, file: UploadFile = File(...)):
-    # Transcribe audio
-    transcriber = aai.Transcriber()
-    audio_data = await file.read()
-    transcript = transcriber.transcribe(audio_data)
-    
-    # Get previous history
-    history = chat_history.get(session_id, [])
-    history.append({"role": "user", "content": transcript.text})
-    
-    # Prepare messages for LLM
-    # Build prompt as a conversation, but only ask for the next bot reply
-    conversation = ""
-    for msg in history:
-        if msg["role"] == "user":
-            conversation += f"You: {msg['content']}\n"
-        else:
-            conversation += f"Bot: {msg['content']}\n"
-    prompt = conversation + "Bot:"
+    try:
+        # STT Error Handling
+        try:
+            transcriber = aai.Transcriber()
+            audio_data = await file.read()
+            transcript = transcriber.transcribe(audio_data)
+            if not transcript.text or not transcript.text.strip():
+                raise Exception("No speech detected.")
+        except Exception:
+            fallback_text = "I'm sorry, I couldn't understand your speech. Please try again."
+            res = client.text_to_speech.generate(text=fallback_text, voice_id="en-US-terrell")
+            return {
+                "success": False,
+                "error": "STT Error",
+                "llm_response": fallback_text,
+                "audio_url": res.audio_file,
+                "history": chat_history.get(session_id, [])
+            }
 
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    llm_response = model.generate_content(prompt)
-    llm_text = llm_response.text[:3000]
-    history.append({"role": "bot", "content": llm_text})
-    
-    # Save history
-    chat_history[session_id] = history
-    
-    # Generate Murf audio
-    res = client.text_to_speech.generate(
-        text=llm_text,
-        voice_id="en-US-terrell"
-    )
-    
-    return {
-        "success": True,
-        "transcription": transcript.text,
-        "llm_response": llm_text,
-        "audio_url": res.audio_file,
-        "history": history
-    }
+        history = chat_history.get(session_id, [])
+        history.append({"role": "user", "content": transcript.text})
+        conversation = ""
+        for msg in history:
+            if msg["role"] == "user":
+                conversation += f"You: {msg['content']}\n"
+            else:
+                conversation += f"Bot: {msg['content']}\n"
+        prompt = conversation + "Bot:"
+
+        # LLM Error Handling
+        try:
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            llm_response = model.generate_content(prompt)
+            llm_text = llm_response.text[:3000]
+        except Exception:
+            fallback_text = "I'm having trouble generating a response right now. Please try again in a moment."
+            res = client.text_to_speech.generate(text=fallback_text, voice_id="en-US-terrell")
+            return {
+                "success": False,
+                "error": "LLM Error",
+                "llm_response": fallback_text,
+                "audio_url": res.audio_file,
+                "history": history
+            }
+
+        history.append({"role": "bot", "content": llm_text})
+        chat_history[session_id] = history
+
+        # TTS Error Handling
+        try:
+            res = client.text_to_speech.generate(text=llm_text, voice_id="en-US-terrell")
+        except Exception:
+            fallback_text = "Sorry, I can't speak right now due to a technical issue. Please try again later."
+            # Only try to generate fallback audio if Murf API key exists
+            if os.getenv("MURF_API_KEY"):
+                try:
+                    res = client.text_to_speech.generate(text=fallback_text, voice_id="en-US-terrell")
+                    audio_url = res.audio_file
+                except Exception:
+                    audio_url = ""
+            else:
+                audio_url = ""
+            return {
+                "success": False,
+                "error": "TTS Error",
+                "llm_response": fallback_text,
+                "audio_url": audio_url,
+                "history": history
+            }
+
+        # return statement for successful case:
+        return {
+            "success": True,
+            "transcription": transcript.text,
+            "llm_response": llm_text,
+            "audio_url": res.audio_file,
+            "history": history
+        }
+    except Exception as e:
+        fallback_text = "Something went wrong. Please try again later."
+        try:
+            res = client.text_to_speech.generate(text=fallback_text, voice_id="en-US-terrell")
+            audio_url = res.audio_file
+        except Exception:
+            audio_url = ""
+        return {
+            "success": False,
+            "error": str(e),
+            "llm_response": fallback_text,
+            "audio_url": audio_url,
+            "history": chat_history.get(session_id, [])
+        }
 
 if __name__ == "__main__":
     import uvicorn

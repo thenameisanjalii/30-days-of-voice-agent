@@ -39,6 +39,8 @@ async function submitText() {
       audioPlayer.src = data.audio_url;
       audioPlayer.style.display = "block";
       audioPlayer.load();
+    } else {
+      alert("Error generating audio: " + data.error);
     }
   } catch (error) {
     alert("Error: " + error.message);
@@ -58,32 +60,37 @@ const echoAudio = document.getElementById("echoAudio");
 
 startBtn.onclick = async () => {
   audioChunks = [];
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  mediaRecorder = new MediaRecorder(stream);
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
 
-  mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+    mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
 
-  // Add listening status
-  const statusDiv = document.createElement("div");
-  statusDiv.id = "recordingStatus";
-  statusDiv.textContent = "🎤 Listening...";
-  statusDiv.style.color = "lightblue";
-  statusDiv.style.fontWeight = "bold";
-  statusDiv.style.marginTop = "10px";
-  document.querySelector(".echo-section").appendChild(statusDiv);
+    // Add listening status
+    const statusDiv = document.createElement("div");
+    statusDiv.id = "recordingStatus";
+    statusDiv.textContent = "🎤 Listening...";
+    statusDiv.style.color = "lightblue";
+    statusDiv.style.fontWeight = "bold";
+    statusDiv.style.marginTop = "10px";
+    document.querySelector(".echo-section").appendChild(statusDiv);
 
-  mediaRecorder.onstop = async () => {
-    const recordingStatus = document.getElementById("recordingStatus");
-    if (recordingStatus) recordingStatus.remove();
+    mediaRecorder.onstop = async () => {
+      const recordingStatus = document.getElementById("recordingStatus");
+      if (recordingStatus) recordingStatus.remove();
 
-    const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+      const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
 
-    await agentChatQuery(audioBlob, sessionId);
-  };
+      await agentChatQuery(audioBlob, sessionId);
+    };
 
-  mediaRecorder.start();
-  startBtn.disabled = true;
-  stopBtn.disabled = false;
+    mediaRecorder.start();
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+  } catch (error) {
+    alert("Could not access microphone. Please check your browser settings.");
+    console.error("Microphone access error:", error);
+  }
 };
 
 stopBtn.onclick = () => {
@@ -91,176 +98,6 @@ stopBtn.onclick = () => {
   startBtn.disabled = false;
   stopBtn.disabled = true;
 };
-
-// Your uploadAudio function stays the same
-// async function uploadAudio(audioBlob) {
-//   // Create unique filename with timestamp
-//   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-//   const filename = `recording_${timestamp}.wav`;
-
-//   const formData = new FormData();
-//   formData.append("file", audioBlob, filename);
-
-//   // Show upload status
-//   const statusDiv = document.createElement("div");
-//   statusDiv.id = "uploadStatus";
-//   statusDiv.textContent = "Uploading audio...";
-//   statusDiv.style.color = "yellow";
-//   document.querySelector(".echo-section").appendChild(statusDiv);
-
-//   try {
-//     const response = await fetch("/upload-audio", {
-//       method: "POST",
-//       body: formData,
-//     });
-
-//     const data = await response.json();
-
-//     if (data.success) {
-//       statusDiv.textContent = `✅ Uploaded: ${data.filename} (${data.size} bytes)`;
-//       statusDiv.style.color = "lightgreen";
-//     }
-//   } catch (error) {
-//     statusDiv.textContent = "❌ Upload failed: " + error.message;
-//     statusDiv.style.color = "red";
-//   }
-// }
-
-// async function transcribeAudio(audioBlob) {
-//   const formData = new FormData();
-//   formData.append("file", audioBlob, "recording.wav");
-
-//   try {
-//     console.log("Sending request to /transcribe/file"); // Add this
-
-//     const response = await fetch("/transcribe/file", {
-//       method: "POST",
-//       body: formData,
-//     });
-
-//     const data = await response.json();
-//     console.log("Response data:", data); // Add this
-
-//     // Remove previous transcription
-//     const oldTranscript = document.querySelector(".transcription-result");
-//     if (oldTranscript) oldTranscript.remove();
-
-//     // Show transcription
-//     const transcriptDiv = document.createElement("div");
-//     transcriptDiv.className = "transcription-result";
-//     transcriptDiv.textContent = `Transcription: ${data.transcription}`;
-//     document.querySelector(".echo-section").appendChild(transcriptDiv);
-//   } catch (error) {
-//     console.error("Transcription error:", error); // Add this
-//     alert("Transcription failed: " + error.message);
-//   }
-// }
-
-// async function echoWithMurf(audioBlob) {
-//   const formData = new FormData();
-//   formData.append("file", audioBlob, "recording.wav");
-
-//   // Show processing status
-//   const statusDiv = document.createElement("div");
-//   statusDiv.id = "processingStatus";
-//   statusDiv.textContent = "🔄 Processing with Murf AI...";
-//   statusDiv.style.color = "orange";
-//   statusDiv.style.fontWeight = "bold";
-//   statusDiv.style.marginTop = "10px";
-//   document.querySelector(".echo-section").appendChild(statusDiv);
-
-//   try {
-//     const response = await fetch("/tts/echo", {
-//       method: "POST",
-//       body: formData,
-//     });
-
-//     const data = await response.json();
-
-//     // Remove processing status
-//     const processingStatus = document.getElementById("processingStatus");
-//     if (processingStatus) processingStatus.remove();
-
-//     if (data.success) {
-//       // Remove previous results
-//       const oldTranscript = document.querySelector(".transcription-result");
-//       if (oldTranscript) oldTranscript.remove();
-
-//       // Show transcription
-//       const transcriptDiv = document.createElement("div");
-//       transcriptDiv.textContent = `You said: "${data.transcription}"`;
-//       transcriptDiv.className = "transcription-result";
-//       document.querySelector(".echo-section").appendChild(transcriptDiv);
-
-//       // Play Murf audio
-//       echoAudio.src = data.audio_url;
-//       echoAudio.style.display = "block";
-//       echoAudio.load();
-//       echoAudio.play();
-//     }
-//   } catch (error) {
-//     // Remove processing status on error
-//     const processingStatus = document.getElementById("processingStatus");
-//     if (processingStatus) processingStatus.remove();
-
-//     alert("Echo failed: " + error.message);
-//   }
-// }
-
-// async function llmAudioQuery(audioBlob) {
-//   const formData = new FormData();
-//   formData.append("file", audioBlob, "recording.wav");
-
-//   // Show processing status
-//   const statusDiv = document.createElement("div");
-//   statusDiv.id = "processingStatus";
-//   statusDiv.textContent = "🔄 Processing with LLM and Murf AI...";
-//   statusDiv.style.color = "orange";
-//   statusDiv.style.fontWeight = "bold";
-//   statusDiv.style.marginTop = "10px";
-//   document.querySelector(".echo-section").appendChild(statusDiv);
-
-//   try {
-//     const response = await fetch("/llm/query", {
-//       method: "POST",
-//       body: formData,
-//     });
-
-//     const data = await response.json();
-
-//     // Remove processing status
-//     const processingStatus = document.getElementById("processingStatus");
-//     if (processingStatus) processingStatus.remove();
-
-//     if (data.success) {
-//       // Remove previous results
-//       const oldResults = document.querySelectorAll(".conversation-card");
-//       oldResults.forEach((card) => card.remove());
-
-//       // Create user card
-//       const userCard = document.createElement("div");
-//       userCard.className = "conversation-card user-card";
-//       userCard.innerHTML = `<strong>You:</strong> ${data.transcription}`;
-//       document.querySelector(".echo-section").appendChild(userCard);
-
-//       // Create bot card
-//       const botCard = document.createElement("div");
-//       botCard.className = "conversation-card bot-card";
-//       botCard.innerHTML = `<strong>Bot:</strong> ${data.llm_response}`;
-//       document.querySelector(".echo-section").appendChild(botCard);
-
-//       // Play Murf audio
-//       echoAudio.src = data.audio_url;
-//       echoAudio.style.display = "block";
-//       echoAudio.load();
-//       echoAudio.play();
-//     }
-//   } catch (error) {
-//     const processingStatus = document.getElementById("processingStatus");
-//     if (processingStatus) processingStatus.remove();
-//     alert("LLM/Murf failed: " + error.message);
-//   }
-// }
 
 async function agentChatQuery(audioBlob, sessionId) {
   const formData = new FormData();
@@ -287,11 +124,12 @@ async function agentChatQuery(audioBlob, sessionId) {
     const processingStatus = document.getElementById("processingStatus");
     if (processingStatus) processingStatus.remove();
 
+    // Clear old conversation history on each new interaction to prevent duplicates
+    const conversationContainer = document.querySelector(".echo-section");
+    const oldResults = conversationContainer.querySelectorAll(".conversation-card");
+    oldResults.forEach((card) => card.remove());
+    
     if (data.success) {
-      // Remove previous results
-      const oldResults = document.querySelectorAll(".conversation-card");
-      oldResults.forEach((card) => card.remove());
-
       // Show full chat history
       data.history.forEach((msg) => {
         const card = document.createElement("div");
@@ -301,23 +139,56 @@ async function agentChatQuery(audioBlob, sessionId) {
         card.innerHTML = `<strong>${
           msg.role === "user" ? "You" : "Bot"
         }:</strong> ${msg.content}`;
-        document.querySelector(".echo-section").appendChild(card);
+        conversationContainer.appendChild(card);
       });
 
       // Play Murf audio
-      echoAudio.src = data.audio_url;
-      echoAudio.style.display = "block";
-      echoAudio.load();
-      echoAudio.play();
+      if (data.audio_url) {
+        echoAudio.src = data.audio_url;
+        echoAudio.style.display = "block";
+        echoAudio.load();
+        echoAudio.play();
 
-      // Auto-start recording after audio ends
-      echoAudio.onended = () => {
-        startBtn.click();
-      };
+        // Auto-start recording after audio ends
+        echoAudio.onended = () => {
+          startBtn.click();
+        };
+      } else {
+        // If there's no audio URL, just display the text and enable recording
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+      }
+    } else {
+      // Handle error case by displaying the fallback message and playing the audio
+      const botCard = document.createElement("div");
+      botCard.className = "conversation-card bot-card";
+      botCard.innerHTML = `<strong>Bot:</strong> ${data.llm_response}`;
+      conversationContainer.appendChild(botCard);
+      
+      console.error(`Backend Error: ${data.error}`);
+
+      if (data.audio_url) {
+        echoAudio.src = data.audio_url;
+        echoAudio.style.display = "block";
+        echoAudio.load();
+        echoAudio.play();
+
+        // After error message plays, stop and re-enable the start button
+        echoAudio.onended = () => {
+          startBtn.disabled = false;
+          stopBtn.disabled = true;
+        };
+      } else {
+        // If no audio URL, just enable the start button
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+      }
     }
   } catch (error) {
     const processingStatus = document.getElementById("processingStatus");
     if (processingStatus) processingStatus.remove();
     alert("Conversation failed: " + error.message);
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
   }
 }
