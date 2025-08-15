@@ -1,40 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Voice Agent - Day 5</title>
+    <title>AI Voice Agent</title>
     <link rel="stylesheet" href="/static/css/style.css" />
-  </head>
-  <body>
-    
-    <!-- Text-to-Speech Section -->
-    <div class="feature-card">
-      <h2>🎵 Text-to-Speech</h2>
-      <div class="tts-section">
-        <input
-          type="text"
-          id="ttsInput"
-          placeholder="Enter text to generate audio"
-          class="tts-input"
-        />
-        <button class="action-btn" onclick="submitText()">
-          Generate Audio
-        </button>
-        <audio id="audioPlayer" controls style="display:none"></audio>
-      </div>
-    </div>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>&#129302; AI Voice Agent</h1>
+            <p>Let's have a natural conversation</p>
+        </header>
 
-    <!-- Echo Bot Section -->
-    <div class="feature-card">
-      <h2>🎤 Echo Bot</h2>
-      <div class="echo-section">
-        <button id="startBtn">Start Recording</button>
-        <button id="stopBtn" disabled>Stop Recording</button>
-        <audio id="echoAudio" controls style="display:none"></audio>
-      </div>
+        <div class="chat-container">
+            <div class="chat-history" id="chatHistory">
+                <!-- Conversation cards will appear here -->
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="recordBtn" class="record-btn">
+                <span class="btn-icon">&#127908;</span>
+                <span class="btn-text">Start Recording</span>
+            </button>
+        </div>
+
+        <audio id="echoAudio" style="display: none" autoplay></audio>
     </div>
 
     <script src="/static/script.js"></script>
-  </body>
+</body>
 </html>

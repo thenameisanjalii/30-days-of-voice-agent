@@ -1,29 +1,26 @@
-# Environment variables (IMPORTANT!)
+# Environment variables
 .env
 
-# Virtual environment
-venv/
-env/
-ENV/
-
-# Python cache
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.Python
+env/
+venv/
+.venv/
 
-# IDE files
+# IDE
 .vscode/
 .idea/
 
-# Logs
-*.log
-
-# Test files
-test_*.py
-
-# OS files
+# OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log
+logs/
 
 api-key.txt

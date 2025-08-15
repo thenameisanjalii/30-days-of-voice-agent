@@ -1,5 +1,3 @@
-// console.log("🎤 Voice Agent Day 1 - System Ready!");
-
 function getSessionId() {
   const params = new URLSearchParams(window.location.search);
   let sessionId = params.get("session_id");
@@ -12,96 +10,91 @@ function getSessionId() {
 }
 const sessionId = getSessionId();
 
-async function submitText() {
-  const text = document.getElementById("ttsInput").value.trim();
-  const audioPlayer = document.getElementById("audioPlayer");
-  const button = document.querySelector(".action-btn");
-
-  if (!text) {
-    alert("Please enter text!");
-    return;
-  }
-
-  // Show loading
-  button.disabled = true;
-  button.textContent = "Loading...";
-
-  try {
-    const response = await fetch("/generate-audio", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: text }),
-    });
-
-    const data = await response.json();
-
-    if (data.success && data.audio_url) {
-      audioPlayer.src = data.audio_url;
-      audioPlayer.style.display = "block";
-      audioPlayer.load();
-    } else {
-      alert("Error generating audio: " + data.error);
-    }
-  } catch (error) {
-    alert("Error: " + error.message);
-  } finally {
-    // Reset button
-    button.disabled = false;
-    button.textContent = "Generate Audio";
-  }
-}
-
 let mediaRecorder;
 let audioChunks = [];
 
-const startBtn = document.getElementById("startBtn");
-const stopBtn = document.getElementById("stopBtn");
 const echoAudio = document.getElementById("echoAudio");
+const recordBtn = document.getElementById("recordBtn");
+let isRecording = false;
 
-startBtn.onclick = async () => {
-  audioChunks = [];
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-
-    mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
-
-    // Add listening status
-    const statusDiv = document.createElement("div");
-    statusDiv.id = "recordingStatus";
-    statusDiv.textContent = "🎤 Listening...";
-    statusDiv.style.color = "lightblue";
-    statusDiv.style.fontWeight = "bold";
-    statusDiv.style.marginTop = "10px";
-    document.querySelector(".echo-section").appendChild(statusDiv);
-
-    mediaRecorder.onstop = async () => {
-      const recordingStatus = document.getElementById("recordingStatus");
-      if (recordingStatus) recordingStatus.remove();
-
-      const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
-
-      await agentChatQuery(audioBlob, sessionId);
-    };
-
-    mediaRecorder.start();
-    startBtn.disabled = true;
-    stopBtn.disabled = false;
-  } catch (error) {
-    alert("Could not access microphone. Please check your browser settings.");
-    console.error("Microphone access error:", error);
+// Replace your recordBtn.onclick function with this:
+recordBtn.onclick = async () => {
+  if (!isRecording) {
+    // Start recording
+    audioChunks = [];
+    try {
+      // Request microphone permission explicitly
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100
+        }
+      });
+      
+      mediaRecorder = new MediaRecorder(stream);
+      
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunks.push(e.data);
+        }
+      };
+      
+      // Add listening status
+      const statusDiv = document.createElement("div");
+      statusDiv.id = "recordingStatus";
+      statusDiv.textContent = "🎤 Listening...";
+      statusDiv.style.color = "lightblue";
+      statusDiv.style.fontWeight = "bold";
+      statusDiv.style.marginTop = "10px";
+      document.querySelector(".chat-history").appendChild(statusDiv);
+      
+      mediaRecorder.onstop = async () => {
+        // Stop all tracks to release microphone
+        stream.getTracks().forEach(track => track.stop());
+        
+        const recordingStatus = document.getElementById("recordingStatus");
+        if (recordingStatus) recordingStatus.remove();
+        
+        if (audioChunks.length > 0) {
+          const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+          await agentChatQuery(audioBlob, sessionId);
+        }
+        
+        recordBtn.innerHTML = '<span class="btn-icon">🎤</span><span class="btn-text">Start Recording</span>';
+        recordBtn.classList.remove("recording");
+        isRecording = false;
+      };
+      
+      mediaRecorder.start();
+      recordBtn.innerHTML = '<span class="btn-icon">⏹️</span><span class="btn-text">Stop Recording</span>';
+      recordBtn.classList.add("recording");
+      isRecording = true;
+      
+    } catch (error) {
+      console.error("Microphone error:", error);
+      if (error.name === 'NotAllowedError') {
+        alert("Microphone access denied. Please:\n1. Click the 🔒 icon in address bar\n2. Allow microphone access\n3. Refresh the page");
+      } else if (error.name === 'NotFoundError') {
+        alert("No microphone found. Please connect a microphone and try again.");
+      } else {
+        alert("Microphone error: " + error.message);
+      }
+    }
+  } else {
+    // Stop recording
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+    }
   }
-};
-
-stopBtn.onclick = () => {
-  mediaRecorder.stop();
-  startBtn.disabled = false;
-  stopBtn.disabled = true;
 };
 
 async function agentChatQuery(audioBlob, sessionId) {
   const formData = new FormData();
   formData.append("file", audioBlob, "recording.wav");
+
+  // Disable button while processing
+  recordBtn.disabled = true;
 
   // Show processing status
   const statusDiv = document.createElement("div");
@@ -110,7 +103,7 @@ async function agentChatQuery(audioBlob, sessionId) {
   statusDiv.style.color = "orange";
   statusDiv.style.fontWeight = "bold";
   statusDiv.style.marginTop = "10px";
-  document.querySelector(".echo-section").appendChild(statusDiv);
+  document.querySelector(".chat-history").appendChild(statusDiv);
 
   try {
     const response = await fetch(`/agent/chat/${sessionId}`, {
@@ -125,7 +118,7 @@ async function agentChatQuery(audioBlob, sessionId) {
     if (processingStatus) processingStatus.remove();
 
     // Clear old conversation history on each new interaction to prevent duplicates
-    const conversationContainer = document.querySelector(".echo-section");
+    const conversationContainer = document.querySelector(".chat-history");
     const oldResults = conversationContainer.querySelectorAll(".conversation-card");
     oldResults.forEach((card) => card.remove());
     
@@ -149,15 +142,11 @@ async function agentChatQuery(audioBlob, sessionId) {
         echoAudio.load();
         echoAudio.play();
 
-        // Auto-start recording after audio ends
-        echoAudio.onended = () => {
-          startBtn.click();
-        };
-      } else {
-        // If there's no audio URL, just display the text and enable recording
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
-      }
+        // // Auto-start recording after audio ends
+        // echoAudio.onended = () => {
+        //   recordBtn.click();
+        // };
+      } 
     } else {
       // Handle error case by displaying the fallback message and playing the audio
       const botCard = document.createElement("div");
@@ -172,23 +161,18 @@ async function agentChatQuery(audioBlob, sessionId) {
         echoAudio.style.display = "block";
         echoAudio.load();
         echoAudio.play();
-
-        // After error message plays, stop and re-enable the start button
-        echoAudio.onended = () => {
-          startBtn.disabled = false;
-          stopBtn.disabled = true;
-        };
-      } else {
-        // If no audio URL, just enable the start button
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
       }
     }
+        // Enable button after processing (success case)
+
+    recordBtn.disabled = false;
   } catch (error) {
     const processingStatus = document.getElementById("processingStatus");
     if (processingStatus) processingStatus.remove();
+
+    // Enable button after processing (error case)
+    recordBtn.disabled = false;
+    
     alert("Conversation failed: " + error.message);
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
   }
 }
