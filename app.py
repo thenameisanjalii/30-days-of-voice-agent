@@ -1,10 +1,13 @@
 # app.py
-from fastapi import FastAPI, UploadFile, File
+from datetime import datetime
+from fastapi import FastAPI, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 import logging
 from typing import Dict, List
+import json
+from datetime import datetime
 
 # Import schemas and services
 from schemas import ChatResponse, TextToSpeechRequest, TextToSpeechResponse, ChatMessage
@@ -107,6 +110,36 @@ async def generate_audio(request: TextToSpeechRequest):
     except Exception as e:
         logger.error(f"Error generating audio: {str(e)}")
         return TextToSpeechResponse(success=False, error=str(e))
+    
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time communication"""
+    await websocket.accept()
+    logger.info("WebSocket connection established")
+    
+    try:
+        while True:
+            data = await websocket.receive_text()
+            logger.info(f"Received: {data}")
+            
+            response_data = {
+            "type": "echo_response",
+            "original_message": data,
+            "echo_message": f"Echo: {data}",
+            "timestamp": datetime.now().isoformat(),
+            "connection_id": id(websocket),
+            "status": "success",
+            "message_length": len(data),
+            "server_info": "AI Voice Agent WebSocket"
+            }
+            await websocket.send_text(json.dumps(response_data))
+            logger.info(f"Sent JSON response: {response_data}")
+            
+    except WebSocketDisconnect:
+        logger.info("WebSocket connection closed")
+    except Exception as e:
+        logger.error(f"WebSocket error: {str(e)}")
+        await websocket.close()
 
 if __name__ == "__main__":
     import uvicorn
