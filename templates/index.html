@@ -3,35 +3,52 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>30 Days of Voice Agents - Live Streaming</title>
+    <title>AI Voice Agent - Real-Time Streaming</title>
     <link rel="stylesheet" href="/static/style.css" />
     <!-- Marked.js for Markdown parsing -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <!-- Highlight.js for code syntax highlighting -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css"
+    />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   </head>
   <body>
     <div class="container">
       <header>
-        <h1>🌊 Live AI Voice Agent</h1>
-        <p class="subtitle">Real-time conversational AI with instant responses</p>
+        <h1>🔴 Live AI Voice Agent</h1>
+        <p class="subtitle">
+          Speak, stream, and listen — AI that responds as you talk
+        </p>
       </header>
 
       <main class="live-voice-agent-section">
         <div class="card">
-          <h1>Live Conversational AI</h1>
-          <p>Start speaking and have a real-time conversation with the AI. Your questions and responses are automatically saved to chat history.</p>
-          
+          <h1>Real-Time Conversation</h1>
+          <p>
+            Press the mic button and chat freely with your AI assistant. Every
+            exchange is captured and stored as part of your session history.
+          </p>
+
           <div class="session-info">
-            <small>Session ID: <span id="sessionId">{{ session_id }}</span></small>
+            <small
+              >Active Session:
+              <span id="sessionId">{{ session_id }}</span></small
+            >
             <div class="chat-history-toggle">
-              <button id="toggleChatHistory" class="btn-toggle">Show Chat History</button>
+              <button id="toggleChatHistory" class="btn-toggle">
+                Toggle Chat History
+              </button>
             </div>
           </div>
-          
-          <div id="chatHistoryContainer" class="chat-history-container" style="display: none;">
-            <h4>Previous Messages in this Session:</h4>
+
+          <div
+            id="chatHistoryContainer"
+            class="chat-history-container"
+            style="display: none"
+          >
+            <h4>Session Transcript:</h4>
             <div id="chatHistoryList" class="chat-history-list">
               <!-- Chat history will be populated here -->
             </div>
@@ -39,36 +56,47 @@
 
           <div class="streaming-info">
             <div class="status-indicator">
-              <span id="connectionStatus" class="status-badge disconnected">Disconnected</span>
+              <span id="connectionStatus" class="status-badge disconnected"
+                >Disconnected</span
+              >
               <span id="currentPersona" class="persona-badge">Developer</span>
               <small id="streamingSessionId" class="streaming-session"></small>
             </div>
           </div>
-          
+
           <div class="controls">
             <div class="persona-selection">
               <label for="personaSelect">AI Persona:</label>
               <select id="personaSelect" class="persona-dropdown">
-                <option value="developer">Developer (Default)</option>
-                <option value="aizen">Sosuke Aizen (Bleach)</option>
+                <option value="developer" selected>Developer (Default)</option>
+                <option value="jack">Captain Jack Sparrow</option>
+                <option value="vegeta">Vegeta</option>
+                <option value="goku">Goku</option>
                 <option value="luffy">Monkey D. Luffy (One Piece)</option>
-                <option value="politician">Politician</option>
               </select>
             </div>
-            
+
             <button id="audioStreamBtn" class="btn primary" data-state="ready">
               <span class="btn-icon">🎤</span>
-              <span class="btn-text">Start Live Conversation</span>
+              <span class="btn-text">Start Voice Streaming</span>
             </button>
           </div>
 
-          <div id="audioStreamStatus" class="streaming-status-container" style="display: none;">
-            <h4>Live Conversation Status:</h4>
+          <div
+            id="audioStreamStatus"
+            class="streaming-status-container"
+            style="display: none"
+          >
+            <h4>Streaming Updates:</h4>
             <div id="streamingStatusLog" class="status-log"></div>
           </div>
 
-          <div id="audioPlaybackStatus" class="audio-playback-container" style="display: none;">
-            <h4>🔊 Live Audio Playback:</h4>
+          <div
+            id="audioPlaybackStatus"
+            class="audio-playback-container"
+            style="display: none"
+          >
+            <h4>🔊 AI Audio Response:</h4>
             <div class="playback-indicator">
               <div class="audio-wave-animation">
                 <div class="wave-bar"></div>
@@ -77,7 +105,7 @@
                 <div class="wave-bar"></div>
                 <div class="wave-bar"></div>
               </div>
-              <span id="playbackStatusText">Audio is streaming...</span>
+              <span id="playbackStatusText">Streaming audio response...</span>
             </div>
           </div>
         </div>
@@ -85,21 +113,27 @@
     </div>
 
     <!-- Conversation Detail Modal -->
-    <div id="conversationModal" class="modal" style="display: none;">
+    <div id="conversationModal" class="modal" style="display: none">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>Conversation Details</h3>
+          <h3>Conversation History</h3>
           <button id="closeModal" class="modal-close-btn">&times;</button>
         </div>
         <div class="modal-body">
           <div class="modal-conversation">
             <div class="modal-question">
-              <h4>👤 Your Question:</h4>
-              <div id="modalQuestionContent" class="modal-message-content"></div>
+              <h4>👤 You Said:</h4>
+              <div
+                id="modalQuestionContent"
+                class="modal-message-content"
+              ></div>
             </div>
             <div class="modal-response">
-              <h4>🤖 AI Response:</h4>
-              <div id="modalResponseContent" class="modal-message-content"></div>
+              <h4>>🤖 AI Replied:</h4>
+              <div
+                id="modalResponseContent"
+                class="modal-message-content"
+              ></div>
             </div>
           </div>
         </div>

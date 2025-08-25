@@ -120,9 +120,10 @@ document.addEventListener("DOMContentLoaded", function () {
   function getPersonaDisplayName(persona) {
     const personaNames = {
       "developer": "Developer (Default)",
-      "aizen": "Sosuke Aizen (Bleach)",
-      "luffy": "Monkey D. Luffy (One Piece)",
-      "politician": "Politician"
+      "jack": "Captain Jack Sparrow",
+      "vegeta": "Vegeta",
+      "goku": "Goku",
+      "luffy": "Monkey D. Luffy (One Piece)"
     };
     return personaNames[persona] || personaNames["developer"];
   }

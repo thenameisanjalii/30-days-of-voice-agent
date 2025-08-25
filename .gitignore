@@ -70,3 +70,5 @@ Thumbs.db
 
 # Logs
 *.log
+
+streamed_audio
