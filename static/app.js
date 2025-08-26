@@ -1,27 +1,29 @@
 document.addEventListener("DOMContentLoaded", function () {
   // Global variables
-  let sessionId = getSessionIdFromUrl() || window.SESSION_ID || generateSessionId();
+  let sessionId =
+    getSessionIdFromUrl() || window.SESSION_ID || generateSessionId();
   let currentAssistantText = ""; // For real-time chat history updates
   let selectedPersona = "developer"; // Default persona
-  
+
   // DOM elements
   const toggleChatHistoryBtn = document.getElementById("toggleChatHistory");
   const chatHistoryContainer = document.getElementById("chatHistoryContainer");
   const personaSelect = document.getElementById("personaSelect");
-  
+  const getWeatherBtn = document.getElementById("getWeatherBtn");
+
   // Modal elements
   const conversationModal = document.getElementById("conversationModal");
   const closeModalBtn = document.getElementById("closeModal");
   const modalCloseBtn = document.getElementById("modalCloseBtn");
   const modalQuestionContent = document.getElementById("modalQuestionContent");
   const modalResponseContent = document.getElementById("modalResponseContent");
-  
+
   // Audio streaming variables
   let audioStreamSocket;
   let audioStreamRecorder;
   let audioStreamStream;
   // let isStreaming = false;
-  
+
   // Audio playback variables
   let audioContext = null;
   let audioChunks = [];
@@ -46,36 +48,54 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Persona selection event listener
   if (personaSelect) {
-    personaSelect.addEventListener("change", function() {
+    personaSelect.addEventListener("change", function () {
       selectedPersona = personaSelect.value;
-      updateStreamingStatus(`🎭 Persona changed to: ${getPersonaDisplayName(selectedPersona)}`, "info");
-      
+      updateStreamingStatus(
+        `🎭 Persona changed to: ${getPersonaDisplayName(selectedPersona)}`,
+        "info"
+      );
+
       // Send persona update to WebSocket if connected
-      if (audioStreamSocket && audioStreamSocket.readyState === WebSocket.OPEN) {
-        audioStreamSocket.send(JSON.stringify({
-          type: "persona_update",
-          persona: selectedPersona
-        }));
+      if (
+        audioStreamSocket &&
+        audioStreamSocket.readyState === WebSocket.OPEN
+      ) {
+        audioStreamSocket.send(
+          JSON.stringify({
+            type: "persona_update",
+            persona: selectedPersona,
+          })
+        );
       }
-      
+
       // Add animation effect
-      const personaSelection = document.querySelector('.persona-selection');
+      const personaSelection = document.querySelector(".persona-selection");
       if (personaSelection) {
-        personaSelection.classList.add('changing');
+        personaSelection.classList.add("changing");
         setTimeout(() => {
-          personaSelection.classList.remove('changing');
+          personaSelection.classList.remove("changing");
         }, 500);
       }
-      
+
       // Update page title to show current persona
-      document.title = `Voice Agent - ${getPersonaDisplayName(selectedPersona)}`;
-      
+      document.title = `Voice Agent - ${getPersonaDisplayName(
+        selectedPersona
+      )}`;
+
       // Update persona badge
       const personaBadge = document.getElementById("currentPersona");
       if (personaBadge) {
-        personaBadge.textContent = getPersonaDisplayName(selectedPersona).split(' ')[0]; // Get first word
-        personaBadge.setAttribute('data-persona', selectedPersona); // Set data attribute for styling
+        personaBadge.textContent =
+          getPersonaDisplayName(selectedPersona).split(" ")[0]; // Get first word
+        personaBadge.setAttribute("data-persona", selectedPersona); // Set data attribute for styling
       }
+    });
+  }
+
+  // Weather button event listener
+  if (getWeatherBtn) {
+    getWeatherBtn.addEventListener("click", function () {
+      handleWeatherRequest();
     });
   }
 
@@ -86,19 +106,23 @@ document.addEventListener("DOMContentLoaded", function () {
   if (modalCloseBtn) {
     modalCloseBtn.addEventListener("click", closeModal);
   }
-  
+
   // Close modal when clicking outside
   if (conversationModal) {
-    conversationModal.addEventListener("click", function(e) {
+    conversationModal.addEventListener("click", function (e) {
       if (e.target === conversationModal) {
         closeModal();
       }
     });
   }
-  
+
   // Close modal with Escape key
-  document.addEventListener("keydown", function(e) {
-    if (e.key === "Escape" && conversationModal && conversationModal.style.display !== "none") {
+  document.addEventListener("keydown", function (e) {
+    if (
+      e.key === "Escape" &&
+      conversationModal &&
+      conversationModal.style.display !== "none"
+    ) {
       closeModal();
     }
   });
@@ -110,7 +134,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get("session_id");
   }
-  
+
   function generateSessionId() {
     return (
       "session_" + Math.random().toString(36).substr(2, 9) + "_" + Date.now()
@@ -119,11 +143,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function getPersonaDisplayName(persona) {
     const personaNames = {
-      "developer": "Developer (Default)",
-      "jack": "Captain Jack Sparrow",
-      "vegeta": "Vegeta",
-      "goku": "Goku",
-      "luffy": "Monkey D. Luffy (One Piece)"
+      developer: "Developer (Default)",
+      jack: "Captain Jack Sparrow",
+      vegeta: "Vegeta",
+      goku: "Goku",
+      luffy: "Monkey D. Luffy (One Piece)",
     };
     return personaNames[persona] || personaNames["developer"];
   }
@@ -141,14 +165,15 @@ document.addEventListener("DOMContentLoaded", function () {
   async function initializeSession() {
     updateUrlWithSessionId(sessionId);
     await loadChatHistory();
-    
+
     // Initialize persona badge
     const personaBadge = document.getElementById("currentPersona");
     if (personaBadge) {
-      personaBadge.textContent = getPersonaDisplayName(selectedPersona).split(' ')[0];
-      personaBadge.setAttribute('data-persona', selectedPersona);
+      personaBadge.textContent =
+        getPersonaDisplayName(selectedPersona).split(" ")[0];
+      personaBadge.setAttribute("data-persona", selectedPersona);
     }
-    
+
     // Set initial page title
     document.title = `Voice Agent - ${getPersonaDisplayName(selectedPersona)}`;
   }
@@ -165,8 +190,128 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       });
     }
-    
+
     resetStreamingState();
+  }
+
+  // Weather functionality
+  function handleWeatherRequest() {
+    const location = prompt("Enter the city name for weather information:");
+    if (location && location.trim()) {
+      getWeatherInfo(location.trim());
+    }
+  }
+
+  async function getWeatherInfo(location) {
+    try {
+      // Ensure WebSocket connection is established
+      if (
+        !audioStreamSocket ||
+        audioStreamSocket.readyState !== WebSocket.OPEN
+      ) {
+        updateStreamingStatus(
+          "🔗 Connecting to get weather information...",
+          "info"
+        );
+        await startAudioStreaming();
+        // Wait a moment for connection to establish
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+
+      if (
+        audioStreamSocket &&
+        audioStreamSocket.readyState === WebSocket.OPEN
+      ) {
+        // Send weather request
+        const weatherRequest = {
+          type: "get_weather",
+          location: location,
+        };
+
+        audioStreamSocket.send(JSON.stringify(weatherRequest));
+        updateStreamingStatus(
+          `🌤️ Requesting weather for ${location}...`,
+          "info"
+        );
+      } else {
+        updateStreamingStatus(
+          "❌ Failed to connect for weather request",
+          "error"
+        );
+      }
+    } catch (error) {
+      console.error("Error getting weather info:", error);
+      updateStreamingStatus("❌ Error getting weather information", "error");
+    }
+  }
+
+  function displayWeatherResponse(data) {
+    // Add weather response to chat history
+    const chatHistoryList = document.getElementById("chatHistoryList");
+    if (chatHistoryList) {
+      const weatherItem = document.createElement("div");
+      weatherItem.className = "chat-item";
+      weatherItem.innerHTML = `
+        <div class="chat-message user">
+          <div class="message-header">
+            <span class="role">👤 You</span>
+            <span class="timestamp">${new Date().toLocaleTimeString()}</span>
+          </div>
+          <div class="message-content">Get weather for ${data.location}</div>
+        </div>
+        <div class="chat-message assistant">
+          <div class="message-header">
+            <span class="role">🌤️ Weather</span>
+            <span class="timestamp">${new Date().toLocaleTimeString()}</span>
+          </div>
+          <div class="message-content weather-response">
+            <div class="weather-info">
+              <h4>${data.location}</h4>
+              <div class="weather-details">
+                <span class="temperature">${data.temperature}°C</span>
+                <span class="description">${data.description}</span>
+              </div>
+              <div class="weather-extra">
+                <small>${data.weather_report
+                  .replace(data.location + ":\\n", "")
+                  .replace(/\\n/g, " • ")}</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      chatHistoryList.appendChild(weatherItem);
+
+      // Scroll to bottom
+      chatHistoryList.scrollTop = chatHistoryList.scrollHeight;
+    }
+
+    updateStreamingStatus(
+      `✅ Weather information retrieved for ${data.location}`,
+      "success"
+    );
+  }
+
+  function displayWeatherError(message) {
+    updateStreamingStatus(`❌ ${message}`, "error");
+
+    // Also add to chat history
+    const chatHistoryList = document.getElementById("chatHistoryList");
+    if (chatHistoryList) {
+      const errorItem = document.createElement("div");
+      errorItem.className = "chat-item";
+      errorItem.innerHTML = `
+        <div class="chat-message assistant error">
+          <div class="message-header">
+            <span class="role">🌤️ Weather</span>
+            <span class="timestamp">${new Date().toLocaleTimeString()}</span>
+          </div>
+          <div class="message-content">${message}</div>
+        </div>
+      `;
+      chatHistoryList.appendChild(errorItem);
+      chatHistoryList.scrollTop = chatHistoryList.scrollHeight;
+    }
   }
 
   async function loadChatHistory() {
@@ -267,14 +412,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
       conversationDiv.appendChild(userDiv);
       conversationDiv.appendChild(assistantDiv);
-      
+
       // Add click event listener to open modal
-      conversationDiv.addEventListener('click', function() {
+      conversationDiv.addEventListener("click", function () {
         const userMessage = conv.user.content;
-        const assistantMessage = conv.assistant ? conv.assistant.content : 'No response available';
+        const assistantMessage = conv.assistant
+          ? conv.assistant.content
+          : "No response available";
         openConversationModal(userMessage, assistantMessage);
       });
-      
+
       chatHistoryList.appendChild(conversationDiv);
     });
 
@@ -306,31 +453,36 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Modal Functions
   function openConversationModal(userMessage, assistantMessage) {
-    if (!conversationModal || !modalQuestionContent || !modalResponseContent) return;
-    
+    if (!conversationModal || !modalQuestionContent || !modalResponseContent)
+      return;
+
     // Set the content
     modalQuestionContent.textContent = userMessage;
-    
+
     // Parse assistant message as markdown
     try {
       if (typeof marked !== "undefined" && assistantMessage) {
         const markdownHtml = marked.parse(assistantMessage);
         modalResponseContent.innerHTML = markdownHtml;
-        
+
         // Apply syntax highlighting if available
         if (typeof hljs !== "undefined") {
-          modalResponseContent.querySelectorAll('pre code').forEach((block) => {
+          modalResponseContent.querySelectorAll("pre code").forEach((block) => {
             hljs.highlightElement(block);
           });
         }
       } else {
-        modalResponseContent.innerHTML = assistantMessage ? assistantMessage.replace(/\n/g, '<br>') : 'No response available';
+        modalResponseContent.innerHTML = assistantMessage
+          ? assistantMessage.replace(/\n/g, "<br>")
+          : "No response available";
       }
     } catch (error) {
-      console.warn('Markdown parsing error in modal:', error);
-      modalResponseContent.innerHTML = assistantMessage ? assistantMessage.replace(/\n/g, '<br>') : 'No response available';
+      console.warn("Markdown parsing error in modal:", error);
+      modalResponseContent.innerHTML = assistantMessage
+        ? assistantMessage.replace(/\n/g, "<br>")
+        : "No response available";
     }
-    
+
     // Show the modal
     conversationModal.style.display = "flex";
     document.body.style.overflow = "hidden"; // Prevent background scrolling
@@ -353,25 +505,29 @@ document.addEventListener("DOMContentLoaded", function () {
     try {
       // Reset streaming state and UI
       resetStreamingState();
-      
+
       updateConnectionStatus("connecting", "Connecting...");
 
       // Clear any previous transcriptions
       clearPreviousTranscriptions();
 
       // Connect to WebSocket with session ID
-      audioStreamSocket = new WebSocket(`ws://localhost:8000/ws/audio-stream?session_id=${sessionId}`);
+      audioStreamSocket = new WebSocket(
+        `ws://localhost:8000/ws/audio-stream?session_id=${sessionId}`
+      );
 
       audioStreamSocket.onopen = function (event) {
         updateConnectionStatus("connected", "Connected");
         updateStreamingStatus("Connected to server", "success");
-        
+
         // Send session ID and persona to establish the session on the backend
-        audioStreamSocket.send(JSON.stringify({
-          type: "session_id",
-          session_id: sessionId,
-          persona: selectedPersona
-        }));
+        audioStreamSocket.send(
+          JSON.stringify({
+            type: "session_id",
+            session_id: sessionId,
+            persona: selectedPersona,
+          })
+        );
       };
 
       audioStreamSocket.onmessage = function (event) {
@@ -383,15 +539,18 @@ document.addEventListener("DOMContentLoaded", function () {
             "info"
           );
           streamingSessionId.textContent = `Session: ${data.session_id}`;
-          
+
           // Ensure the frontend session ID matches the backend
           if (data.session_id !== sessionId) {
             sessionId = data.session_id;
             updateUrlWithSessionId(sessionId);
           }
-          
+
           if (data.transcription_enabled) {
-            updateStreamingStatus("🎙️ Real-time transcription enabled", "success");
+            updateStreamingStatus(
+              "🎙️ Real-time transcription enabled",
+              "success"
+            );
           }
           startRecordingForStreaming();
         } else if (data.type === "chunk_ack") {
@@ -411,28 +570,49 @@ document.addEventListener("DOMContentLoaded", function () {
             updateStreamingStatus(`🎙️ ${data.text}`, "info");
           }
         } else if (data.type === "turn_end") {
-          updateStreamingStatus("🛑 Turn ended - User stopped talking", "success");
+          updateStreamingStatus(
+            "🛑 Turn ended - User stopped talking",
+            "success"
+          );
           if (data.final_transcript && data.final_transcript.trim()) {
-            updateStreamingStatus(`✅ TURN COMPLETE: "${data.final_transcript}"`, "success");
+            updateStreamingStatus(
+              `✅ TURN COMPLETE: "${data.final_transcript}"`,
+              "success"
+            );
           } else {
-            updateStreamingStatus("⚠️ Turn ended but no speech detected", "warning");
+            updateStreamingStatus(
+              "⚠️ Turn ended but no speech detected",
+              "warning"
+            );
             showNoSpeechMessage();
           }
         } else if (data.type === "transcription_complete") {
           if (data.text && data.text.trim()) {
-            updateStreamingStatus(`✅ COMPLETE TRANSCRIPTION: "${data.text}"`, "success");
+            updateStreamingStatus(
+              `✅ COMPLETE TRANSCRIPTION: "${data.text}"`,
+              "success"
+            );
           } else {
-            updateStreamingStatus("⚠️ No speech detected in recording", "warning");
+            updateStreamingStatus(
+              "⚠️ No speech detected in recording",
+              "warning"
+            );
             showNoSpeechMessage();
           }
         } else if (data.type === "streaming_complete") {
           updateStreamingStatus(`🎯 ${data.message}`, "success");
           if (!data.transcription || !data.transcription.trim()) {
-            updateStreamingStatus("⚠️ Recording completed but no speech was detected", "warning");
+            updateStreamingStatus(
+              "⚠️ Recording completed but no speech was detected",
+              "warning"
+            );
             showNoSpeechMessage();
           }
         } else if (data.type === "transcription_error") {
-          updateStreamingStatus("❌ Transcription error: " + data.message, "error");
+          updateStreamingStatus(
+            "❌ Transcription error: " + data.message,
+            "error"
+          );
         } else if (data.type === "transcription_stopped") {
           updateStreamingStatus("🛑 " + data.message, "warning");
         } else if (data.type === "llm_streaming_start") {
@@ -457,7 +637,7 @@ document.addEventListener("DOMContentLoaded", function () {
         } else if (data.type === "llm_streaming_complete") {
           updateStreamingStatus(`✅ ${data.message}`, "success");
           displayStreamingComplete(data);
-          
+
           // Chat history is now updated in real-time when response is saved
           // No need for delayed reload
         } else if (data.type === "llm_streaming_error") {
@@ -473,9 +653,27 @@ document.addEventListener("DOMContentLoaded", function () {
           // Update the persona badge to reflect the change
           const personaBadge = document.getElementById("currentPersona");
           if (personaBadge) {
-            personaBadge.textContent = getPersonaDisplayName(data.persona).split(' ')[0];
-            personaBadge.setAttribute('data-persona', data.persona);
+            personaBadge.textContent = getPersonaDisplayName(
+              data.persona
+            ).split(" ")[0];
+            personaBadge.setAttribute("data-persona", data.persona);
           }
+        } else if (data.type === "weather_request_start") {
+          updateStreamingStatus(`🌤️ ${data.message}`, "info");
+        } else if (data.type === "weather_response") {
+          if (data.success) {
+            displayWeatherResponse(data);
+          } else {
+            displayWeatherError(
+              data.message || "Failed to get weather information"
+            );
+          }
+        } else if (data.type === "weather_error") {
+          displayWeatherError(data.message || "Weather service error");
+        } else if (data.type === "weather_location_needed") {
+          displayWeatherError(
+            data.message || "Please specify a location for weather information"
+          );
         }
       };
 
@@ -503,27 +701,34 @@ document.addEventListener("DOMContentLoaded", function () {
     try {
       audioStreamStream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          sampleRate: 16000,  // 16kHz for AssemblyAI
-          channelCount: 1,    // Mono
+          sampleRate: 16000, // 16kHz for AssemblyAI
+          channelCount: 1, // Mono
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
+          autoGainControl: true,
         },
       });
 
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)({
-        sampleRate: 16000
+      const audioContext = new (window.AudioContext ||
+        window.webkitAudioContext)({
+        sampleRate: 16000,
       });
-      
+
       const source = audioContext.createMediaStreamSource(audioStreamStream);
       const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      
-      processor.onaudioprocess = function(e) {
-        if (audioStreamSocket && audioStreamSocket.readyState === WebSocket.OPEN) {
+
+      processor.onaudioprocess = function (e) {
+        if (
+          audioStreamSocket &&
+          audioStreamSocket.readyState === WebSocket.OPEN
+        ) {
           const inputData = e.inputBuffer.getChannelData(0);
           const pcmData = new Int16Array(inputData.length);
           for (let i = 0; i < inputData.length; i++) {
-            pcmData[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32767));
+            pcmData[i] = Math.max(
+              -32768,
+              Math.min(32767, inputData[i] * 32767)
+            );
           }
           audioStreamSocket.send(pcmData.buffer);
         }
@@ -531,16 +736,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
       source.connect(processor);
       processor.connect(audioContext.destination);
-      
+
       // Store references for cleanup
       audioStreamRecorder = {
         stop: () => {
           processor.disconnect();
           source.disconnect();
           audioContext.close();
-        }
+        },
       };
-      
+
       isStreaming = true;
       if (audioStreamBtn) {
         audioStreamBtn.innerHTML =
@@ -570,10 +775,10 @@ document.addEventListener("DOMContentLoaded", function () {
   async function stopAudioStreaming() {
     try {
       isStreaming = false;
-      
+
       // Stop the audio recording (either MediaRecorder or custom processor)
       if (audioStreamRecorder) {
-        if (typeof audioStreamRecorder.stop === 'function') {
+        if (typeof audioStreamRecorder.stop === "function") {
           audioStreamRecorder.stop();
         }
         audioStreamRecorder = null;
@@ -642,66 +847,66 @@ document.addEventListener("DOMContentLoaded", function () {
   function resetStreamingState() {
     // Hide previous streaming UI elements
     const elementsToHide = [
-      'llmStreamingArea',
-      'ttsStreamingArea', 
-      'streamingSummaryArea',
-      'noSpeechArea'
+      "llmStreamingArea",
+      "ttsStreamingArea",
+      "streamingSummaryArea",
+      "noSpeechArea",
     ];
-    
-    elementsToHide.forEach(elementId => {
+
+    elementsToHide.forEach((elementId) => {
       const element = document.getElementById(elementId);
       if (element) {
-        element.style.display = 'none';
-        if (elementId === 'llmStreamingArea') {
-          element.innerHTML = '';
+        element.style.display = "none";
+        if (elementId === "llmStreamingArea") {
+          element.innerHTML = "";
         }
       }
     });
-    
+
     // Clear status log
     if (streamingStatusLog) {
-      streamingStatusLog.innerHTML = '';
+      streamingStatusLog.innerHTML = "";
     }
-    
+
     // Hide status container
     if (audioStreamStatus) {
-      audioStreamStatus.style.display = 'none';
+      audioStreamStatus.style.display = "none";
     }
-    
+
     // Reset chat history state
     currentAssistantText = "";
-    
+
     resetAudioPlayback();
   }
 
   function clearPreviousTranscriptions() {
     // Clear live transcription area
-    const liveArea = document.getElementById('liveTranscriptionArea');
+    const liveArea = document.getElementById("liveTranscriptionArea");
     if (liveArea) {
-      liveArea.style.display = 'none';
-      const transcriptionText = document.getElementById('transcriptionText');
+      liveArea.style.display = "none";
+      const transcriptionText = document.getElementById("transcriptionText");
       if (transcriptionText) {
-        transcriptionText.innerHTML = '';
+        transcriptionText.innerHTML = "";
       }
     }
-    
+
     // Clear complete transcription area
-    const completeArea = document.getElementById('completeTranscriptionArea');
+    const completeArea = document.getElementById("completeTranscriptionArea");
     if (completeArea) {
-      completeArea.style.display = 'none';
+      completeArea.style.display = "none";
     }
-    
+
     // Clear no speech area
-    const noSpeechArea = document.getElementById('noSpeechArea');
+    const noSpeechArea = document.getElementById("noSpeechArea");
     if (noSpeechArea) {
-      noSpeechArea.style.display = 'none';
+      noSpeechArea.style.display = "none";
     }
-    
+
     // Clear LLM streaming area
-    const llmArea = document.getElementById('llmStreamingArea');
+    const llmArea = document.getElementById("llmStreamingArea");
     if (llmArea) {
-      llmArea.style.display = 'none';
-      llmArea.innerHTML = '';
+      llmArea.style.display = "none";
+      llmArea.innerHTML = "";
     }
   }
 
@@ -715,7 +920,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!chatHistoryList) return;
 
     // Remove "no history" message if it exists
-    const noHistoryMsg = chatHistoryList.querySelector('.no-history');
+    const noHistoryMsg = chatHistoryList.querySelector(".no-history");
     if (noHistoryMsg) {
       noHistoryMsg.remove();
     }
@@ -757,14 +962,15 @@ document.addEventListener("DOMContentLoaded", function () {
     chatHistoryList.appendChild(conversationDiv);
 
     // Add click event listener to open modal
-    conversationDiv.addEventListener('click', function() {
+    conversationDiv.addEventListener("click", function () {
       const currentUserMessage = userMessage;
-      const assistantMessage = currentAssistantText || 'Response in progress...';
+      const assistantMessage =
+        currentAssistantText || "Response in progress...";
       openConversationModal(currentUserMessage, assistantMessage);
     });
 
     // Scroll to new conversation
-    conversationDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    conversationDiv.scrollIntoView({ behavior: "smooth", block: "nearest" });
 
     // Show notification that new conversation started
     if (chatHistoryContainer && chatHistoryContainer.style.display === "none") {
@@ -788,25 +994,28 @@ document.addEventListener("DOMContentLoaded", function () {
       if (typeof marked !== "undefined") {
         const markdownHtml = marked.parse(currentAssistantText);
         assistantContent.innerHTML = markdownHtml;
-        
+
         // Apply syntax highlighting if available
         if (typeof hljs !== "undefined") {
-          assistantContent.querySelectorAll('pre code').forEach((block) => {
+          assistantContent.querySelectorAll("pre code").forEach((block) => {
             hljs.highlightElement(block);
           });
         }
       } else {
-        assistantContent.innerHTML = currentAssistantText.replace(/\n/g, '<br>');
+        assistantContent.innerHTML = currentAssistantText.replace(
+          /\n/g,
+          "<br>"
+        );
       }
     } catch (error) {
-      console.warn('Markdown parsing error:', error);
-      assistantContent.innerHTML = currentAssistantText.replace(/\n/g, '<br>');
+      console.warn("Markdown parsing error:", error);
+      assistantContent.innerHTML = currentAssistantText.replace(/\n/g, "<br>");
     }
 
     // Scroll to keep the conversation visible
     const assistantDiv = document.getElementById("current-assistant-response");
     if (assistantDiv) {
-      assistantDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      assistantDiv.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   }
 
@@ -815,21 +1024,21 @@ document.addEventListener("DOMContentLoaded", function () {
     const assistantDiv = document.getElementById("current-assistant-response");
     if (assistantDiv) {
       // Remove the ID since this conversation is now complete
-      assistantDiv.removeAttribute('id');
-      const assistantContent = assistantDiv.querySelector('.message-content');
+      assistantDiv.removeAttribute("id");
+      const assistantContent = assistantDiv.querySelector(".message-content");
       if (assistantContent) {
-        assistantContent.removeAttribute('id');
+        assistantContent.removeAttribute("id");
       }
-      
+
       // Add a "saved" indicator
-      const messageHeader = assistantDiv.querySelector('.message-header');
+      const messageHeader = assistantDiv.querySelector(".message-header");
       if (messageHeader) {
-        const savedIndicator = document.createElement('span');
-        savedIndicator.className = 'saved-indicator';
-        savedIndicator.innerHTML = '💾';
-        savedIndicator.title = 'Response saved to database';
-        savedIndicator.style.marginLeft = '8px';
-        savedIndicator.style.fontSize = '12px';
+        const savedIndicator = document.createElement("span");
+        savedIndicator.className = "saved-indicator";
+        savedIndicator.innerHTML = "💾";
+        savedIndicator.title = "Response saved to database";
+        savedIndicator.style.marginLeft = "8px";
+        savedIndicator.style.fontSize = "12px";
         messageHeader.appendChild(savedIndicator);
       }
     }
@@ -838,7 +1047,10 @@ document.addEventListener("DOMContentLoaded", function () {
     currentAssistantText = "";
 
     // Update button text back to normal
-    if (toggleChatHistoryBtn && toggleChatHistoryBtn.textContent.includes("New!")) {
+    if (
+      toggleChatHistoryBtn &&
+      toggleChatHistoryBtn.textContent.includes("New!")
+    ) {
       toggleChatHistoryBtn.textContent = "Show Chat History";
       toggleChatHistoryBtn.style.backgroundColor = "";
     }
@@ -847,18 +1059,18 @@ document.addEventListener("DOMContentLoaded", function () {
   function handleAudioChunk(audioData) {
     // Play the audio chunk for streaming
     playAudioChunk(audioData.audio_base64);
-    
+
     // Update UI with basic audio streaming progress
     updateStreamingStatus(
       `Audio chunk received (${audioData.chunk_size} bytes)`,
       "success"
     );
-    
+
     if (audioData.is_final) {
       updateStreamingStatus("Audio streaming complete!", "success");
       setTimeout(() => {
         if (!isPlaying && audioChunks.length === 0) {
-          updatePlaybackStatus('Audio streaming complete!');
+          updatePlaybackStatus("Audio streaming complete!");
           setTimeout(() => {
             hideAudioPlaybackIndicator();
           }, 2000);
@@ -868,23 +1080,23 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function displayLLMStreamingStart(userMessage) {
-    let llmArea = document.getElementById('llmStreamingArea');
-    
+    let llmArea = document.getElementById("llmStreamingArea");
+
     if (!llmArea) {
-      llmArea = document.createElement('div');
-      llmArea.id = 'llmStreamingArea';
-      llmArea.className = 'llm-streaming-area';
-      
+      llmArea = document.createElement("div");
+      llmArea.id = "llmStreamingArea";
+      llmArea.className = "llm-streaming-area";
+
       // Insert after the complete transcription area or streaming status
-      const completeArea = document.getElementById('completeTranscriptionArea');
-      const statusContainer = document.getElementById('audioStreamStatus');
+      const completeArea = document.getElementById("completeTranscriptionArea");
+      const statusContainer = document.getElementById("audioStreamStatus");
       const insertAfter = completeArea || statusContainer;
-      
+
       if (insertAfter) {
         insertAfter.parentNode.insertBefore(llmArea, insertAfter.nextSibling);
       }
     }
-    
+
     // Update content with current user message
     llmArea.innerHTML = `
       <h4>🤖 AI Response Generation</h4>
@@ -896,52 +1108,52 @@ document.addEventListener("DOMContentLoaded", function () {
         <div id="llmResponseText" class="llm-response-text"></div>
       </div>
     `;
-    
-    llmArea.style.display = 'block';
-    
+
+    llmArea.style.display = "block";
+
     // Clear previous response and show generating message
-    const responseText = document.getElementById('llmResponseText');
+    const responseText = document.getElementById("llmResponseText");
     if (responseText) {
-      responseText.innerHTML = '<em>Generating response...</em>';
-      responseText.setAttribute('data-raw-text', '');
+      responseText.innerHTML = "<em>Generating response...</em>";
+      responseText.setAttribute("data-raw-text", "");
     }
   }
 
   // Function to display LLM text chunks
   function displayLLMTextChunk(chunk, accumulatedLength) {
-    const responseText = document.getElementById('llmResponseText');
+    const responseText = document.getElementById("llmResponseText");
     if (responseText) {
       // Append the new chunk
-      let currentText = responseText.getAttribute('data-raw-text') || '';
-      if (currentText === 'Generating response...') {
-        currentText = '';
+      let currentText = responseText.getAttribute("data-raw-text") || "";
+      if (currentText === "Generating response...") {
+        currentText = "";
       }
-      
+
       // Accumulate the raw text
       const newText = currentText + chunk;
-      responseText.setAttribute('data-raw-text', newText);
-      
+      responseText.setAttribute("data-raw-text", newText);
+
       // Parse as Markdown and display
       try {
-        if (typeof marked !== 'undefined') {
+        if (typeof marked !== "undefined") {
           const markdownHtml = marked.parse(newText);
           responseText.innerHTML = markdownHtml;
-          
+
           // Apply syntax highlighting if available
-          if (typeof hljs !== 'undefined') {
-            responseText.querySelectorAll('pre code').forEach((block) => {
+          if (typeof hljs !== "undefined") {
+            responseText.querySelectorAll("pre code").forEach((block) => {
               hljs.highlightElement(block);
             });
           }
         } else {
           // Fallback to simple line break replacement
-          responseText.innerHTML = newText.replace(/\n/g, '<br>');
+          responseText.innerHTML = newText.replace(/\n/g, "<br>");
         }
       } catch (error) {
-        console.warn('Markdown parsing error:', error);
-        responseText.innerHTML = newText.replace(/\n/g, '<br>');
+        console.warn("Markdown parsing error:", error);
+        responseText.innerHTML = newText.replace(/\n/g, "<br>");
       }
-      
+
       // Scroll to bottom
       responseText.scrollTop = responseText.scrollHeight;
     }
@@ -949,45 +1161,48 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function displayTTSStreamingStart() {
     // Basic TTS streaming UI
-    let ttsArea = document.getElementById('ttsStreamingArea');
-    
+    let ttsArea = document.getElementById("ttsStreamingArea");
+
     if (!ttsArea) {
-      ttsArea = document.createElement('div');
-      ttsArea.id = 'ttsStreamingArea';
-      ttsArea.className = 'tts-streaming-area';
+      ttsArea = document.createElement("div");
+      ttsArea.id = "ttsStreamingArea";
+      ttsArea.className = "tts-streaming-area";
       ttsArea.innerHTML = `<h4>🎵 Audio Generation</h4><div class="audio-status">Generating audio...</div>`;
-      
-      const llmArea = document.getElementById('llmStreamingArea');
-      const statusContainer = document.getElementById('audioStreamStatus');
+
+      const llmArea = document.getElementById("llmStreamingArea");
+      const statusContainer = document.getElementById("audioStreamStatus");
       const insertAfter = llmArea || statusContainer;
-      
+
       if (insertAfter) {
         insertAfter.parentNode.insertBefore(ttsArea, insertAfter.nextSibling);
       }
     }
-    
-    ttsArea.style.display = 'block';
+
+    ttsArea.style.display = "block";
   }
 
   // Removed displayAudioChunkReceived function - not needed for basic functionality
 
   function displayStreamingComplete(data) {
-    let summaryArea = document.getElementById('streamingSummaryArea');
-    
+    let summaryArea = document.getElementById("streamingSummaryArea");
+
     if (!summaryArea) {
-      summaryArea = document.createElement('div');
-      summaryArea.id = 'streamingSummaryArea';
-      summaryArea.className = 'streaming-summary-area';
-      
-      const ttsArea = document.getElementById('ttsStreamingArea');
-      const statusContainer = document.getElementById('audioStreamStatus');
+      summaryArea = document.createElement("div");
+      summaryArea.id = "streamingSummaryArea";
+      summaryArea.className = "streaming-summary-area";
+
+      const ttsArea = document.getElementById("ttsStreamingArea");
+      const statusContainer = document.getElementById("audioStreamStatus");
       const insertAfter = ttsArea || statusContainer;
-      
+
       if (insertAfter) {
-        insertAfter.parentNode.insertBefore(summaryArea, insertAfter.nextSibling);
+        insertAfter.parentNode.insertBefore(
+          summaryArea,
+          insertAfter.nextSibling
+        );
       }
     }
-    
+
     summaryArea.innerHTML = `
       <h4>✅ Conversation Complete</h4>
       <div class="streaming-summary">
@@ -997,39 +1212,49 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
       </div>
     `;
-    
-    summaryArea.style.display = 'block';
-    
+
+    summaryArea.style.display = "block";
+
     // Render final response as Markdown
-    const finalResponseElement = document.getElementById('finalResponseContent');
+    const finalResponseElement = document.getElementById(
+      "finalResponseContent"
+    );
     if (finalResponseElement && data.complete_response) {
       try {
-        if (typeof marked !== 'undefined') {
+        if (typeof marked !== "undefined") {
           const markdownHtml = marked.parse(data.complete_response);
           finalResponseElement.innerHTML = markdownHtml;
-          
-          if (typeof hljs !== 'undefined') {
-            finalResponseElement.querySelectorAll('pre code').forEach((block) => {
-              hljs.highlightElement(block);
-            });
+
+          if (typeof hljs !== "undefined") {
+            finalResponseElement
+              .querySelectorAll("pre code")
+              .forEach((block) => {
+                hljs.highlightElement(block);
+              });
           }
         } else {
-          finalResponseElement.innerHTML = data.complete_response.replace(/\n/g, '<br>');
+          finalResponseElement.innerHTML = data.complete_response.replace(
+            /\n/g,
+            "<br>"
+          );
         }
       } catch (error) {
-        console.warn('Markdown parsing error in final response:', error);
-        finalResponseElement.innerHTML = data.complete_response.replace(/\n/g, '<br>');
+        console.warn("Markdown parsing error in final response:", error);
+        finalResponseElement.innerHTML = data.complete_response.replace(
+          /\n/g,
+          "<br>"
+        );
       }
     }
-    
-    summaryArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    summaryArea.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
   // Removed displayAudioStreamingComplete function - not needed
 
   // ==================== AUDIO STREAMING PLAYBACK FUNCTIONS ====================
   // Based on Murf's WebSocket streaming reference implementation
-  
+
   function initializeAudioContext() {
     try {
       if (!audioContext) {
@@ -1038,7 +1263,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
       return true;
     } catch (error) {
-      console.error('Failed to initialize audio context:', error);
+      console.error("Failed to initialize audio context:", error);
       return false;
     }
   }
@@ -1047,15 +1272,15 @@ document.addEventListener("DOMContentLoaded", function () {
     try {
       let binary = atob(base64);
       const offset = wavHeaderSet ? 44 : 0; // Skip WAV header if present
-      
+
       if (wavHeaderSet) {
         wavHeaderSet = false; // Only process header once
       }
-      
+
       const length = binary.length - offset;
       const buffer = new ArrayBuffer(length);
       const byteArray = new Uint8Array(buffer);
-      
+
       for (let i = 0; i < byteArray.length; i++) {
         byteArray[i] = binary.charCodeAt(i + offset);
       }
@@ -1071,7 +1296,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       return float32Array;
     } catch (error) {
-      console.error('Error converting base64 to PCM:', error);
+      console.error("Error converting base64 to PCM:", error);
       return null;
     }
   }
@@ -1079,38 +1304,40 @@ document.addEventListener("DOMContentLoaded", function () {
   function chunkPlay() {
     if (audioChunks.length > 0) {
       const chunk = audioChunks.shift();
-      
+
       if (audioContext.state === "suspended") {
         audioContext.resume();
       }
-      
+
       try {
         const buffer = audioContext.createBuffer(1, chunk.length, SAMPLE_RATE);
         buffer.copyToChannel(chunk, 0);
-        
+
         const source = audioContext.createBufferSource();
         source.buffer = buffer;
         source.connect(audioContext.destination);
-        
+
         const now = audioContext.currentTime;
         if (playheadTime < now) {
           playheadTime = now + 0.05; // Add small delay to prevent audio gaps
         }
-        
+
         source.start(playheadTime);
         playheadTime += buffer.duration;
-        
+
         updatePlaybackStatus(`Playing audio chunk`);
-        
+
         // Continue playing remaining chunks
         if (audioChunks.length > 0) {
           chunkPlay();
         } else {
           isPlaying = false;
-          updatePlaybackStatus('Audio streaming paused - waiting for more chunks...');
+          updatePlaybackStatus(
+            "Audio streaming paused - waiting for more chunks..."
+          );
         }
       } catch (error) {
-        console.error('Error playing audio chunk:', error);
+        console.error("Error playing audio chunk:", error);
         isPlaying = false;
         hideAudioPlaybackIndicator();
       }
@@ -1132,19 +1359,23 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!float32Array || float32Array.length === 0) {
         return;
       }
-      
+
       // Add chunk to playback queue
       audioChunks.push(float32Array);
 
       // Start playback if not already playing
-      if (!isPlaying && (playheadTime <= audioContext.currentTime + 0.1 || audioChunks.length >= 2)) {
+      if (
+        !isPlaying &&
+        (playheadTime <= audioContext.currentTime + 0.1 ||
+          audioChunks.length >= 2)
+      ) {
         isPlaying = true;
         audioContext.resume().then(() => {
           chunkPlay();
         });
       }
     } catch (error) {
-      console.error('Error in playAudioChunk:', error);
+      console.error("Error in playAudioChunk:", error);
     }
   }
 
@@ -1152,11 +1383,11 @@ document.addEventListener("DOMContentLoaded", function () {
     audioChunks = [];
     isPlaying = false;
     wavHeaderSet = true;
-    
+
     if (audioContext) {
       playheadTime = audioContext.currentTime;
     }
-    
+
     hideAudioPlaybackIndicator();
   }
 
@@ -1164,14 +1395,14 @@ document.addEventListener("DOMContentLoaded", function () {
    * Show the audio playback indicator with animation
    */
   function showAudioPlaybackIndicator() {
-    const playbackContainer = document.getElementById('audioPlaybackStatus');
+    const playbackContainer = document.getElementById("audioPlaybackStatus");
     if (playbackContainer) {
-      playbackContainer.style.display = 'block';
-      
+      playbackContainer.style.display = "block";
+
       // Update status text
-      const statusText = document.getElementById('playbackStatusText');
+      const statusText = document.getElementById("playbackStatusText");
       if (statusText) {
-        statusText.textContent = 'Audio is streaming and playing...';
+        statusText.textContent = "Audio is streaming and playing...";
       }
     }
   }
@@ -1180,9 +1411,9 @@ document.addEventListener("DOMContentLoaded", function () {
    * Hide the audio playback indicator
    */
   function hideAudioPlaybackIndicator() {
-    const playbackContainer = document.getElementById('audioPlaybackStatus');
+    const playbackContainer = document.getElementById("audioPlaybackStatus");
     if (playbackContainer) {
-      playbackContainer.style.display = 'none';
+      playbackContainer.style.display = "none";
     }
   }
 
@@ -1190,7 +1421,7 @@ document.addEventListener("DOMContentLoaded", function () {
    * Update playback status text
    */
   function updatePlaybackStatus(text) {
-    const statusText = document.getElementById('playbackStatusText');
+    const statusText = document.getElementById("playbackStatusText");
     if (statusText) {
       statusText.textContent = text;
     }

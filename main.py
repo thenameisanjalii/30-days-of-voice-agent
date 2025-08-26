@@ -23,6 +23,7 @@ from services.tts_service import TTSService
 from services.database_service import DatabaseService
 from services.assemblyai_streaming_service import AssemblyAIStreamingService
 from services.murf_websocket_service import MurfWebSocketService
+from services.weather_service import WeatherService
 from utils.logging_config import setup_logging, get_logger
 from utils.constants import get_fallback_message
 
@@ -47,6 +48,7 @@ tts_service: TTSService = None
 database_service: DatabaseService = None
 assemblyai_streaming_service: AssemblyAIStreamingService = None
 murf_websocket_service: MurfWebSocketService = None
+weather_service: WeatherService = None
 
 
 def initialize_services() -> APIKeyConfig:
@@ -56,10 +58,11 @@ def initialize_services() -> APIKeyConfig:
         assemblyai_api_key=os.getenv("ASSEMBLYAI_API_KEY"),
         murf_api_key=os.getenv("MURF_API_KEY"),
         murf_voice_id=os.getenv("MURF_VOICE_ID", "en-IN-aarav"),
-        mongodb_url=os.getenv("MONGODB_URL")
+        mongodb_url=os.getenv("MONGODB_URL"),
+        openweather_api_key=os.getenv("OPENWEATHER_API_KEY")
     )
     
-    global stt_service, llm_service, tts_service, database_service, assemblyai_streaming_service, murf_websocket_service
+    global stt_service, llm_service, tts_service, database_service, assemblyai_streaming_service, murf_websocket_service, weather_service
     if config.are_keys_valid:
         stt_service = STTService(config.assemblyai_api_key)
         llm_service = LLMService(config.gemini_api_key)
@@ -70,6 +73,14 @@ def initialize_services() -> APIKeyConfig:
     else:
         missing_keys = config.validate_keys()
         logger.error(f"❌ Missing API keys: {missing_keys}")
+    
+    # Initialize weather service if API key is available
+    if config.openweather_api_key:
+        weather_service = WeatherService(config.openweather_api_key)
+        logger.info("✅ Weather service initialized successfully")
+    else:
+        logger.warning("⚠️ Weather service not initialized - missing OpenWeather API key")
+    
     database_service = DatabaseService(config.mongodb_url)
     
     return config
@@ -136,7 +147,8 @@ async def get_backend_status():
                 "database_connected": db_connected,
                 "database_test": db_test_result,
                 "assemblyai_streaming": assemblyai_streaming_service is not None,
-                "murf_websocket": murf_websocket_service is not None
+                "murf_websocket": murf_websocket_service is not None,
+                "weather": weather_service is not None
             },
             timestamp=datetime.now().isoformat()
         )
@@ -330,9 +342,90 @@ manager = ConnectionManager()
 # Global locks to prevent concurrent LLM streaming for the same session
 session_locks = {}
 
+# Global function to handle weather requests
+async def handle_weather_request(location: str, session_id: str, websocket: WebSocket):
+    """Handle weather information request"""
+    try:
+        if not weather_service:
+            error_message = {
+                "type": "weather_error",
+                "message": "Weather service is not available. Please check the OpenWeather API key configuration.",
+                "timestamp": datetime.now().isoformat()
+            }
+            await manager.send_personal_message(json.dumps(error_message), websocket)
+            return
+        
+        # Send weather request start notification
+        start_message = {
+            "type": "weather_request_start",
+            "message": f"Getting weather information for {location}...",
+            "location": location,
+            "timestamp": datetime.now().isoformat()
+        }
+        await manager.send_personal_message(json.dumps(start_message), websocket)
+        
+        # Get weather data
+        weather_data = await weather_service.get_weather(location)
+        
+        if weather_data["success"]:
+            # Send weather response
+            weather_response = {
+                "type": "weather_response",
+                "success": True,
+                "location": weather_data["location"],
+                "temperature": weather_data["temperature"],
+                "description": weather_data["description"],
+                "weather_report": weather_data["weather_report"],
+                "data": weather_data,
+                "timestamp": datetime.now().isoformat()
+            }
+            await manager.send_personal_message(json.dumps(weather_response), websocket)
+            
+            # Save weather query to chat history
+            if database_service:
+                await database_service.add_message_to_history(session_id, "user", f"Get weather for {location}")
+                await database_service.add_message_to_history(session_id, "assistant", weather_data["weather_report"])
+                
+        else:
+            # Send weather error response
+            error_response = {
+                "type": "weather_error",
+                "success": False,
+                "message": weather_data["message"],
+                "error": weather_data.get("error", "unknown"),
+                "timestamp": datetime.now().isoformat()
+            }
+            await manager.send_personal_message(json.dumps(error_response), websocket)
+            
+    except Exception as e:
+        logger.error(f"Error handling weather request: {str(e)}")
+        error_message = {
+            "type": "weather_error",
+            "message": "Sorry, I had trouble getting the weather information. Please try again.",
+            "timestamp": datetime.now().isoformat()
+        }
+        await manager.send_personal_message(json.dumps(error_message), websocket)
+
+
 # Global function to handle LLM streaming (moved outside WebSocket handler to prevent duplicates)
 async def handle_llm_streaming(user_message: str, session_id: str, websocket: WebSocket, persona: str = "developer"):
     """Handle LLM streaming response and send to Murf WebSocket for TTS"""
+    
+    # Check if this is a weather query first
+    if weather_service and weather_service.is_weather_query(user_message):
+        location = weather_service.extract_location_from_query(user_message)
+        if location:
+            await handle_weather_request(location, session_id, websocket)
+            return
+        else:
+            # If it's a weather query but no location found, ask for location
+            error_message = {
+                "type": "weather_location_needed",
+                "message": "I'd be happy to help you with the weather! Please specify a location, for example: 'What's the weather in New York?'",
+                "timestamp": datetime.now().isoformat()
+            }
+            await manager.send_personal_message(json.dumps(error_message), websocket)
+            return
     
     # Prevent concurrent streaming for the same session
     if session_id not in session_locks:
@@ -616,6 +709,21 @@ async def audio_stream_websocket(websocket: WebSocket):
                                             "timestamp": datetime.now().isoformat()
                                         }
                                         await manager.send_personal_message(json.dumps(persona_response), websocket)
+                                    continue
+                                
+                                elif command_type == "get_weather":
+                                    # Handle weather request
+                                    location = command_data.get("location")
+                                    if location and location.strip():
+                                        logger.info(f"Weather request for location: {location}")
+                                        await handle_weather_request(location.strip(), session_id, websocket)
+                                    else:
+                                        error_message = {
+                                            "type": "weather_error",
+                                            "message": "Please provide a location for the weather request.",
+                                            "timestamp": datetime.now().isoformat()
+                                        }
+                                        await manager.send_personal_message(json.dumps(error_message), websocket)
                                     continue
                         except json.JSONDecodeError:
                             # Not JSON, treat as regular command

@@ -81,6 +81,7 @@ class APIKeyConfig(BaseModel):
     murf_api_key: Optional[str] = None
     murf_voice_id: Optional[str] = None
     mongodb_url: Optional[str] = None
+    openweather_api_key: Optional[str] = None
 
     def validate_keys(self) -> List[str]:
         missing_keys = []
