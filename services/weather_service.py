@@ -23,36 +23,102 @@ class WeatherService:
             Dict containing weather data or error information
         """
         try:
-            params = {
-                "q": location,
-                "appid": self.api_key,
-                "units": "metric"
+            # Clean and format the location
+            location = location.strip()
+            
+            # Try different location formats for better API success
+            location_variants = []
+            
+            # Add original location
+            location_variants.append(location)
+            
+            # Remove commas and extra spaces
+            clean_location = " ".join(location.replace(",", " ").split())
+            if clean_location != location:
+                location_variants.append(clean_location)
+            
+            # Try with proper capitalization (Title Case)
+            title_case_location = location.title()
+            if title_case_location != location:
+                location_variants.append(title_case_location)
+            
+            # If location contains "india", try with country code
+            if "india" in location.lower():
+                city_part = location.lower().replace("india", "").replace(",", "").strip()
+                if city_part:
+                    location_variants.append(f"{city_part},IN")
+                    location_variants.append(city_part)
+            
+            # For single word locations, try with common country codes
+            if " " not in location.strip() and len(location.strip()) > 2:
+                single_word = location.strip()
+                # Try with major country codes
+                location_variants.extend([
+                    f"{single_word},US",  # United States
+                    f"{single_word},IN",  # India
+                    f"{single_word},GB",  # United Kingdom
+                    f"{single_word},CA",  # Canada
+                    f"{single_word},AU",  # Australia
+                    f"{single_word},DE",  # Germany
+                    f"{single_word},FR",  # France
+                    f"{single_word},JP",  # Japan
+                    f"{single_word},CN",  # China
+                    f"{single_word},BR",  # Brazil
+                ])
+            
+            # Try just the first word/city name
+            first_word = location.split()[0] if location.split() else location
+            if first_word != location and len(first_word) > 2:
+                location_variants.append(first_word)
+                location_variants.append(first_word.title())
+            
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_variants = []
+            for variant in location_variants:
+                if variant.lower() not in seen:
+                    seen.add(variant.lower())
+                    unique_variants.append(variant)
+            
+            logger.info(f"Trying weather API for location variants: {unique_variants}")
+            
+            for loc_variant in unique_variants:
+                if not loc_variant or len(loc_variant) < 2:
+                    continue
+                    
+                params = {
+                    "q": loc_variant,
+                    "appid": self.api_key,
+                    "units": "metric"
+                }
+                
+                logger.info(f"Trying weather API call for location: '{loc_variant}'")
+                
+                # Use asyncio to run requests in a thread pool to avoid blocking
+                loop = asyncio.get_event_loop()
+                response = await loop.run_in_executor(
+                    None, 
+                    lambda p=params: requests.get(self.base_url, params=p, timeout=10)
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    logger.info(f"Weather API success for location: '{loc_variant}'")
+                    return self._parse_weather_data(data)
+                elif response.status_code == 404:
+                    logger.warning(f"Location not found: '{loc_variant}', trying next variant...")
+                    continue
+                else:
+                    logger.error(f"Weather API error for '{loc_variant}': {response.status_code}")
+                    continue
+            
+            # If all variants failed
+            logger.warning(f"All location variants failed for: {location}")
+            return {
+                "success": False,
+                "error": "location_not_found",
+                "message": f"Sorry, I couldn't find the weather for '{location}'. Please check the spelling or try a different location format."
             }
-            
-            # Use asyncio to run requests in a thread pool to avoid blocking
-            loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
-                None, 
-                lambda: requests.get(self.base_url, params=params, timeout=10)
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                return self._parse_weather_data(data)
-            elif response.status_code == 404:
-                logger.warning(f"Location not found: {location}")
-                return {
-                    "success": False,
-                    "error": "location_not_found",
-                    "message": f"Sorry, I couldn't find the weather for '{location}'. Please check the spelling or try a different location."
-                }
-            else:
-                logger.error(f"Weather API error: {response.status_code}")
-                return {
-                    "success": False,
-                    "error": "api_error",
-                    "message": "Sorry, I'm having trouble getting the weather information right now. Please try again later."
-                }
                         
         except requests.exceptions.RequestException as e:
             logger.error(f"Network error getting weather: {str(e)}")
@@ -147,40 +213,81 @@ class WeatherService:
             Optional[str]: Extracted location or None
         """
         text_lower = text.lower()
+        original_text = text.strip()
         
-        # Common patterns for weather queries
-        patterns = [
-            "weather in ",
-            "weather for ",
-            "temperature in ",
-            "temperature for ",
-            "forecast for ",
-            "forecast in ",
-            "weather at ",
-            "temp in ",
-            "temp for "
+        # Remove common weather question words and patterns
+        remove_patterns = [
+            "tell me", "what's", "what is", "whats", "how's", "how is", "hows",
+            "can you tell me", "please tell me", "i want to know", "i would like to know",
+            "the", "about", "of", "for", "in", "at", "?"
         ]
         
-        for pattern in patterns:
+        # Common patterns for weather queries
+        weather_patterns = [
+            r"weather\s+(?:in|for|at|of)\s+(.+)",
+            r"temperature\s+(?:in|for|at|of)\s+(.+)", 
+            r"temp\s+(?:in|for|at|of)\s+(.+)",
+            r"forecast\s+(?:in|for|at|of)\s+(.+)",
+            r"(?:what's|what\s+is|whats)\s+the\s+weather\s+(?:in|for|at|of)\s+(.+)",
+            r"(?:tell\s+me\s+)?(?:what's|what\s+is|whats)\s+the\s+weather\s+(?:in|for|at|of)\s+(.+)",
+            r"(?:how's|how\s+is|hows)\s+the\s+weather\s+(?:in|for|at|of)\s+(.+)"
+        ]
+        
+        import re
+        
+        # Try to match against weather patterns
+        for pattern in weather_patterns:
+            match = re.search(pattern, text_lower)
+            if match:
+                location = match.group(1).strip()
+                # Clean up the location
+                location = re.sub(r'[?.,!]+$', '', location)  # Remove trailing punctuation
+                location = location.strip()
+                if location:
+                    return location
+        
+        # Fallback: look for location after common weather keywords
+        simple_patterns = [
+            "weather in ",
+            "weather for ",
+            "weather at ",
+            "weather of ",
+            "temperature in ",
+            "temperature for ",
+            "temperature at ",
+            "temperature of ",
+            "forecast for ",
+            "forecast in ",
+            "forecast at ",
+            "forecast of ",
+            "temp in ",
+            "temp for ",
+            "temp at ",
+            "temp of "
+        ]
+        
+        for pattern in simple_patterns:
             if pattern in text_lower:
                 # Extract text after the pattern
                 start_idx = text_lower.find(pattern) + len(pattern)
-                location = text[start_idx:].strip()
+                location = original_text[start_idx:].strip()
                 
-                # Clean up the location (remove common endings)
-                location = location.split('?')[0].strip()  # Remove question marks
-                location = location.split('.')[0].strip()  # Remove periods
-                location = location.split(',')[0].strip()  # Take first part if comma-separated
+                # Clean up the location (remove common endings but keep full location)
+                location = re.sub(r'[?.,!]+$', '', location)  # Remove trailing punctuation
+                location = location.strip()
                 
                 if location:
                     return location
         
-        # If no pattern found, check for location keywords at the end
-        words = text.split()
-        if len(words) >= 2:
-            # Look for "in [location]" or "for [location]" patterns
-            for i, word in enumerate(words[:-1]):
-                if word.lower() in ["in", "for", "at"] and i < len(words) - 1:
-                    return " ".join(words[i+1:])
+        # Final fallback: look for "in [location]" anywhere in the text
+        words = original_text.split()
+        for i, word in enumerate(words):
+            if word.lower() in ["in", "for", "at", "of"] and i < len(words) - 1:
+                # Take everything after the preposition
+                location = " ".join(words[i+1:])
+                location = re.sub(r'[?.,!]+$', '', location)  # Remove trailing punctuation
+                location = location.strip()
+                if location:
+                    return location
         
         return None

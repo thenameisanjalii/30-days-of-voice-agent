@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const chatHistoryContainer = document.getElementById("chatHistoryContainer");
   const personaSelect = document.getElementById("personaSelect");
   const getWeatherBtn = document.getElementById("getWeatherBtn");
+  const getMotivationBtn = document.getElementById("getMotivationBtn");
 
   // Modal elements
   const conversationModal = document.getElementById("conversationModal");
@@ -96,6 +97,13 @@ document.addEventListener("DOMContentLoaded", function () {
   if (getWeatherBtn) {
     getWeatherBtn.addEventListener("click", function () {
       handleWeatherRequest();
+    });
+  }
+
+  // Motivation button event listener
+  if (getMotivationBtn) {
+    getMotivationBtn.addEventListener("click", function () {
+      handleMotivationRequest();
     });
   }
 
@@ -195,11 +203,167 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Weather functionality
+  let isWeatherMode = false; // Track if we're in weather listening mode
+
   function handleWeatherRequest() {
-    const location = prompt("Enter the city name for weather information:");
-    if (location && location.trim()) {
-      getWeatherInfo(location.trim());
+    // Instead of prompt, activate weather listening mode
+    if (!isWeatherMode) {
+      activateWeatherListeningMode();
+    } else {
+      deactivateWeatherListeningMode();
     }
+  }
+
+  // Enhanced location extraction function for JavaScript
+  function extractLocationFromText(text) {
+    const lowerText = text.toLowerCase().trim();
+
+    // Remove common prefixes and suffixes that people might say
+    let cleanedText = lowerText
+      .replace(/^(the|a|an)\s+/i, "")
+      .replace(/\s+(please|thanks|thank you)$/i, "")
+      .replace(/[?.,!]+$/, "");
+
+    // Common patterns for weather queries - extract location part
+    const patterns = [
+      /(?:weather|temperature|temp|forecast)\s+(?:in|for|at|of)\s+(.+)/i,
+      /(?:what's|what\s+is|whats)\s+the\s+(?:weather|temperature|temp|forecast)\s+(?:in|for|at|of)\s+(.+)/i,
+      /(?:tell\s+me\s+)?(?:what's|what\s+is|whats)\s+the\s+(?:weather|temperature|temp|forecast)\s+(?:in|for|at|of)\s+(.+)/i,
+      /(?:how's|how\s+is|hows)\s+the\s+(?:weather|temperature|temp|forecast)\s+(?:in|for|at|of)\s+(.+)/i,
+      /(?:get|give\s+me|show\s+me)\s+(?:weather|temperature|temp|forecast)\s+(?:in|for|at|of)\s+(.+)/i,
+    ];
+
+    // Try pattern matching first
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        let location = match[1].trim();
+        location = location.replace(/[?.,!]+$/, "");
+        return location;
+      }
+    }
+
+    // Check for simple "in [location]" patterns
+    const inPatterns = [
+      /\bin\s+(.+)/i,
+      /\bfor\s+(.+)/i,
+      /\bat\s+(.+)/i,
+      /\bof\s+(.+)/i,
+    ];
+
+    for (const pattern of inPatterns) {
+      const match = cleanedText.match(pattern);
+      if (match && match[1]) {
+        let location = match[1].trim();
+        location = location.replace(/[?.,!]+$/, "");
+        // Filter out common non-location words
+        if (
+          !location.match(
+            /^(me|you|us|them|it|here|there|now|today|tomorrow)$/i
+          )
+        ) {
+          return location;
+        }
+      }
+    }
+
+    // If no pattern found, assume the entire text is the location
+    // This handles cases where user just says "Mumbai" or "New York"
+    const finalLocation = cleanedText.replace(/[?.,!]+$/, "");
+
+    // Filter out very short or common non-location phrases
+    if (
+      finalLocation.length >= 2 &&
+      !finalLocation.match(
+        /^(yes|no|ok|okay|sure|hi|hello|hey|thanks|thank you|please)$/i
+      )
+    ) {
+      return finalLocation;
+    }
+
+    // Fallback to original text
+    return text.trim().replace(/[?.,!]+$/, "");
+  }
+
+  function activateWeatherListeningMode() {
+    isWeatherMode = true;
+    const weatherBtn = document.getElementById("getWeatherBtn");
+    const instructionPanel = document.getElementById("weatherInstructionPanel");
+
+    // Show instruction panel
+    if (instructionPanel) {
+      instructionPanel.style.display = "block";
+    }
+
+    // Update button appearance
+    if (weatherBtn) {
+      weatherBtn.innerHTML = `
+        <span class="btn-icon">🎤</span>
+        <span class="btn-text">Listening for Location...</span>
+      `;
+      weatherBtn.classList.add("listening");
+      weatherBtn.setAttribute("data-state", "listening");
+    }
+
+    // Show prominent instruction in status
+    updateStreamingStatus(
+      "🌤️ WEATHER MODE ACTIVATED: Only speak the location name (e.g., 'New York', 'London', 'Mumbai')",
+      "info"
+    );
+
+    // Add a secondary instruction
+    setTimeout(() => {
+      if (isWeatherMode) {
+        updateStreamingStatus(
+          "📍 Just say the city/location name - no need for full sentences!",
+          "info"
+        );
+      }
+    }, 2000);
+
+    // Start audio streaming if not already active
+    if (!audioStreamSocket || audioStreamSocket.readyState !== WebSocket.OPEN) {
+      startAudioStreaming()
+        .then(() => {
+          updateStreamingStatus(
+            "🎤 Ready! Just speak the location name (e.g., 'Mumbai', 'New York', 'Tokyo')...",
+            "info"
+          );
+        })
+        .catch((error) => {
+          console.error("Failed to start audio streaming for weather:", error);
+          deactivateWeatherListeningMode();
+          updateStreamingStatus("❌ Failed to activate weather mode", "error");
+        });
+    } else {
+      updateStreamingStatus(
+        "🎤 Ready! Just speak the location name (e.g., 'Mumbai', 'New York', 'Tokyo')...",
+        "info"
+      );
+    }
+  }
+
+  function deactivateWeatherListeningMode() {
+    isWeatherMode = false;
+    const weatherBtn = document.getElementById("getWeatherBtn");
+    const instructionPanel = document.getElementById("weatherInstructionPanel");
+
+    // Hide instruction panel
+    if (instructionPanel) {
+      instructionPanel.style.display = "none";
+    }
+
+    // Reset button appearance
+    if (weatherBtn) {
+      weatherBtn.innerHTML = `
+        <span class="btn-icon">🌤️</span>
+        <span class="btn-text">Get Weather Info</span>
+      `;
+      weatherBtn.classList.remove("listening");
+      weatherBtn.setAttribute("data-state", "ready");
+    }
+
+    updateStreamingStatus("🌤️ Weather mode deactivated", "info");
   }
 
   async function getWeatherInfo(location) {
@@ -242,6 +406,77 @@ document.addEventListener("DOMContentLoaded", function () {
     } catch (error) {
       console.error("Error getting weather info:", error);
       updateStreamingStatus("❌ Error getting weather information", "error");
+    }
+  }
+
+  // Motivation functionality
+  async function handleMotivationRequest() {
+    const motivationBtn = document.getElementById("getMotivationBtn");
+
+    try {
+      // Update button to show processing state
+      if (motivationBtn) {
+        motivationBtn.innerHTML = `
+          <span class="btn-icon">⏳</span>
+          <span class="btn-text">Generating Quote...</span>
+        `;
+        motivationBtn.classList.add("processing");
+        motivationBtn.disabled = true;
+      }
+
+      updateStreamingStatus(
+        "💪 Generating the best motivational quote for you...",
+        "info"
+      );
+
+      // Ensure WebSocket connection is established
+      if (
+        !audioStreamSocket ||
+        audioStreamSocket.readyState !== WebSocket.OPEN
+      ) {
+        updateStreamingStatus(
+          "🔗 Connecting to get motivational quote...",
+          "info"
+        );
+        await startAudioStreaming();
+        // Wait a moment for connection to establish
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+
+      if (
+        audioStreamSocket &&
+        audioStreamSocket.readyState === WebSocket.OPEN
+      ) {
+        // Send quote request
+        const quoteRequest = {
+          type: "get_quote",
+        };
+
+        audioStreamSocket.send(JSON.stringify(quoteRequest));
+        updateStreamingStatus("💪 Fetching motivational quote...", "info");
+      } else {
+        updateStreamingStatus(
+          "❌ Failed to connect for quote request",
+          "error"
+        );
+        resetMotivationButton();
+      }
+    } catch (error) {
+      console.error("Error getting motivational quote:", error);
+      updateStreamingStatus("❌ Error getting motivational quote", "error");
+      resetMotivationButton();
+    }
+  }
+
+  function resetMotivationButton() {
+    const motivationBtn = document.getElementById("getMotivationBtn");
+    if (motivationBtn) {
+      motivationBtn.innerHTML = `
+        <span class="btn-icon">💪</span>
+        <span class="btn-text">Get Motivation</span>
+      `;
+      motivationBtn.classList.remove("processing");
+      motivationBtn.disabled = false;
     }
   }
 
@@ -311,6 +546,140 @@ document.addEventListener("DOMContentLoaded", function () {
       `;
       chatHistoryList.appendChild(errorItem);
       chatHistoryList.scrollTop = chatHistoryList.scrollHeight;
+    }
+  }
+
+  function displayQuoteResponse(data) {
+    console.log("Displaying quote response:", data); // Debug log
+
+    // Add quote response to chat history
+    const chatHistoryList = document.getElementById("chatHistoryList");
+    if (chatHistoryList) {
+      const quoteItem = document.createElement("div");
+      quoteItem.className = "chat-item";
+      quoteItem.innerHTML = `
+        <div class="chat-message user">
+          <div class="message-header">
+            <span class="role">👤 You</span>
+            <span class="timestamp">${new Date().toLocaleTimeString()}</span>
+          </div>
+          <div class="message-content">Get motivational quote</div>
+        </div>
+        <div class="chat-message assistant">
+          <div class="message-header">
+            <span class="role">💪 Motivation</span>
+            <span class="timestamp">${new Date().toLocaleTimeString()}</span>
+          </div>
+          <div class="message-content quote-response">
+            <div class="quote-info">
+              <div class="quote-text">"${
+                data.quote || "Quote not available"
+              }"</div>
+              <div class="quote-author">— ${data.author || "Unknown"}</div>
+            </div>
+          </div>
+        </div>
+      `;
+      chatHistoryList.appendChild(quoteItem);
+
+      // Scroll to bottom
+      chatHistoryList.scrollTop = chatHistoryList.scrollHeight;
+    }
+
+    // Also display in AI response area (current agent output section)
+    updateAIResponseDisplay(data.quote, data.author);
+
+    updateStreamingStatus(
+      `✅ Motivational quote received from ${data.author}`,
+      "success"
+    );
+
+    // Send quote to TTS for audio playback
+    if (data.quote) {
+      const quoteForTTS = `${data.quote}. Quote by ${data.author}`;
+      triggerTTSForQuote(quoteForTTS);
+    }
+  }
+
+  function updateAIResponseDisplay(quote, author) {
+    console.log("Updating AI response display with:", quote, author); // Debug log
+
+    // Find or create AI response display area
+    let responseArea = document.getElementById("aiResponseArea");
+    if (!responseArea) {
+      // Create the response area if it doesn't exist
+      responseArea = document.createElement("div");
+      responseArea.id = "aiResponseArea";
+      responseArea.className = "ai-response-area";
+
+      // Insert it after the audio playback container
+      const audioPlaybackContainer = document.getElementById(
+        "audioPlaybackStatus"
+      );
+      if (audioPlaybackContainer) {
+        audioPlaybackContainer.parentNode.insertBefore(
+          responseArea,
+          audioPlaybackContainer.nextSibling
+        );
+      } else {
+        // Fallback: append to main card
+        const mainCard = document.querySelector(".card");
+        if (mainCard) {
+          mainCard.appendChild(responseArea);
+        }
+      }
+    }
+
+    // Update content with proper quote display - ensure consistent styling
+    responseArea.innerHTML = `
+      <h4>🤖 AI Response:</h4>
+      <div class="current-response quote-display">
+        <div class="current-quote">"${quote || "Quote not available"}"</div>
+        <div class="current-author">— ${author || "Unknown"}</div>
+      </div>
+    `;
+
+    // Force display and apply styles
+    responseArea.style.display = "block";
+
+    // Ensure the quote display gets the right styling by triggering a layout recalculation
+    responseArea.offsetHeight;
+
+    // Add animation class for smooth appearance
+    responseArea.classList.add("quote-animated");
+    setTimeout(() => {
+      responseArea.classList.remove("quote-animated");
+    }, 500);
+  }
+
+  function triggerTTSForQuote(quoteText) {
+    // Use the browser's built-in speech synthesis for quotes since they're short
+    if ("speechSynthesis" in window) {
+      const utterance = new SpeechSynthesisUtterance(quoteText);
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+
+      // Show audio playback indicator
+      showAudioPlaybackIndicator();
+      updateStreamingStatus("🔊 Playing motivational quote...", "info");
+
+      utterance.onend = function () {
+        hideAudioPlaybackIndicator();
+        updateStreamingStatus("✅ Quote playback completed", "success");
+      };
+
+      utterance.onerror = function () {
+        hideAudioPlaybackIndicator();
+        updateStreamingStatus("❌ TTS playback failed", "error");
+      };
+
+      speechSynthesis.speak(utterance);
+    } else {
+      updateStreamingStatus(
+        "❌ Speech synthesis not supported in this browser",
+        "error"
+      );
     }
   }
 
@@ -563,6 +932,19 @@ document.addEventListener("DOMContentLoaded", function () {
           // Display final transcription only if we have text
           if (data.text && data.text.trim()) {
             updateStreamingStatus(`🎙️ FINAL: "${data.text}"`, "recording");
+
+            // Check if we're in weather mode and process the location
+            if (isWeatherMode) {
+              const extractedLocation = extractLocationFromText(
+                data.text.trim()
+              );
+              updateStreamingStatus(
+                `📍 Detected location: "${extractedLocation}" - Getting weather info...`,
+                "info"
+              );
+              getWeatherInfo(extractedLocation);
+              deactivateWeatherListeningMode();
+            }
           }
         } else if (data.type === "partial_transcript") {
           // Show partial transcripts for feedback
@@ -579,6 +961,19 @@ document.addEventListener("DOMContentLoaded", function () {
               `✅ TURN COMPLETE: "${data.final_transcript}"`,
               "success"
             );
+
+            // Check if we're in weather mode and process the location
+            if (isWeatherMode) {
+              const extractedLocation = extractLocationFromText(
+                data.final_transcript.trim()
+              );
+              updateStreamingStatus(
+                `📍 Detected location: "${extractedLocation}" - Getting weather info...`,
+                "info"
+              );
+              getWeatherInfo(extractedLocation);
+              deactivateWeatherListeningMode();
+            }
           } else {
             updateStreamingStatus(
               "⚠️ Turn ended but no speech detected",
@@ -660,6 +1055,8 @@ document.addEventListener("DOMContentLoaded", function () {
           }
         } else if (data.type === "weather_request_start") {
           updateStreamingStatus(`🌤️ ${data.message}`, "info");
+        } else if (data.type === "weather_location_detected") {
+          updateStreamingStatus(`✅ ${data.message}`, "success");
         } else if (data.type === "weather_response") {
           if (data.success) {
             displayWeatherResponse(data);
@@ -674,6 +1071,31 @@ document.addEventListener("DOMContentLoaded", function () {
           displayWeatherError(
             data.message || "Please specify a location for weather information"
           );
+        } else if (data.type === "quote_request_start") {
+          updateStreamingStatus(`💪 ${data.message}`, "info");
+        } else if (data.type === "quote_response") {
+          console.log("Received quote response:", data); // Debug log
+          if (data.success) {
+            displayQuoteResponse(data);
+            resetMotivationButton(); // Reset button after successful response
+          } else {
+            updateStreamingStatus(
+              "❌ Failed to get motivational quote",
+              "error"
+            );
+            resetMotivationButton();
+          }
+        } else if (data.type === "quote_request_start") {
+          updateStreamingStatus(`💪 ${data.message}`, "info");
+        } else if (data.type === "quote_response") {
+          if (data.success) {
+            displayQuoteResponse(data);
+          } else {
+            updateStreamingStatus(
+              "❌ Failed to get motivational quote",
+              "error"
+            );
+          }
         }
       };
 

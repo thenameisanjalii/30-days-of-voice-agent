@@ -9,6 +9,7 @@ import json
 import asyncio
 from datetime import datetime
 from dotenv import load_dotenv
+import aiohttp
 
 from models.schemas import (
     VoiceChatResponse, 
@@ -407,6 +408,123 @@ async def handle_weather_request(location: str, session_id: str, websocket: WebS
         await manager.send_personal_message(json.dumps(error_message), websocket)
 
 
+# Global function to handle motivational quote requests
+async def handle_quote_request(session_id: str, websocket: WebSocket):
+    """Handle motivational quote request using ZenQuotes API"""
+    try:
+        # Send quote request start notification
+        start_message = {
+            "type": "quote_request_start",
+            "message": "Fetching an inspiring motivational quote for you...",
+            "timestamp": datetime.now().isoformat()
+        }
+        await manager.send_personal_message(json.dumps(start_message), websocket)
+        
+        # Fetch quote from ZenQuotes API
+        try:
+            import time
+            import random
+            
+            # Add cache busting parameters to ensure fresh random quotes
+            timestamp = int(time.time())
+            cache_buster = random.randint(1000, 9999)
+            
+            async with aiohttp.ClientSession() as session:
+                # ZenQuotes API endpoint - add cache busting to ensure randomness
+                url = f"https://zenquotes.io/api/random?_t={timestamp}&_r={cache_buster}"
+                async with session.get(url, timeout=10) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        # ZenQuotes returns an array with one quote object
+                        if isinstance(data, list) and len(data) > 0:
+                            quote_data = data[0]
+                            quote_text = quote_data.get("q", "").strip()
+                            author = quote_data.get("a", "Unknown").strip()
+                            
+                            if quote_text and len(quote_text) > 5:  # Ensure we got a real quote
+                                logger.info(f"✅ Successfully fetched quote from ZenQuotes: '{quote_text[:50]}...' by {author}")
+                            else:
+                                raise Exception("Empty or invalid quote from ZenQuotes")
+                        else:
+                            raise Exception("Unexpected response format from ZenQuotes")
+                    else:
+                        raise Exception(f"ZenQuotes API returned status {response.status}")
+        
+        except asyncio.TimeoutError:
+            # Fallback quote if timeout
+            quote_text = "Every moment is a fresh beginning."
+            author = "T.S. Eliot"
+            logger.warning("⏰ ZenQuotes API request timed out, using fallback quote")
+        
+        except Exception as e:
+            # Enhanced fallback quotes with more variety for better randomness
+            fallback_quotes = [
+                ("Believe in yourself and all that you are. Know that there is something inside you that is greater than any obstacle.", "Christian D. Larson"),
+                ("The future belongs to those who believe in the beauty of their dreams.", "Eleanor Roosevelt"),
+                ("Success is not final, failure is not fatal: it is the courage to continue that counts.", "Winston Churchill"),
+                ("The only impossible journey is the one you never begin.", "Tony Robbins"),
+                ("Your limitation—it's only your imagination.", "Unknown"),
+                ("Push yourself, because no one else is going to do it for you.", "Unknown"),
+                ("Great things never come from comfort zones.", "Unknown"),
+                ("Dream it. Wish it. Do it.", "Unknown"),
+                ("Success doesn't just find you. You have to go out and get it.", "Unknown"),
+                ("The harder you work for something, the greater you'll feel when you achieve it.", "Unknown"),
+                ("Dream bigger. Do bigger.", "Unknown"),
+                ("Don't stop when you're tired. Stop when you're done.", "Unknown"),
+                ("Wake up with determination. Go to bed with satisfaction.", "Unknown"),
+                ("Do something today that your future self will thank you for.", "Sean Patrick Flanery"),
+                ("Little things make big days.", "Unknown"),
+                ("It's going to be hard, but hard does not mean impossible.", "Unknown"),
+                ("Don't wait for opportunity. Create it.", "Unknown"),
+                ("The key to success is to focus on goals, not obstacles.", "Unknown"),
+                ("Be yourself; everyone else is already taken.", "Oscar Wilde"),
+                ("You are never too old to set another goal or to dream a new dream.", "C.S. Lewis"),
+                ("The way to get started is to quit talking and begin doing.", "Walt Disney"),
+                ("If life were predictable it would cease to be life, and be without flavor.", "Eleanor Roosevelt"),
+                ("It is during our darkest moments that we must focus to see the light.", "Aristotle"),
+                ("Do not go where the path may lead, go instead where there is no path and leave a trail.", "Ralph Waldo Emerson")
+            ]
+            import random
+            quote_text, author = random.choice(fallback_quotes)
+            logger.error(f"❌ Error fetching quote from ZenQuotes API: {str(e)}, using random fallback quote")
+        
+        # Send quote response
+        quote_response = {
+            "type": "quote_response",
+            "success": True,
+            "quote": quote_text,
+            "author": author,
+            "timestamp": datetime.now().isoformat()
+        }
+        await manager.send_personal_message(json.dumps(quote_response), websocket)
+        
+        # Save quote request to chat history
+        if database_service:
+            await database_service.add_message_to_history(session_id, "user", "Get motivational quote")
+            await database_service.add_message_to_history(session_id, "assistant", f'"{quote_text}" - {author}')
+            
+    except Exception as e:
+        logger.error(f"❌ Critical error handling quote request: {str(e)}")
+        # Send emergency fallback quote response
+        emergency_quotes = [
+            ("Stay strong, keep moving forward!", "Unknown"),
+            ("Every day is a new beginning!", "Unknown"),
+            ("You are capable of amazing things!", "Unknown"),
+            ("Believe in the power of your dreams!", "Unknown")
+        ]
+        import random
+        quote_text, author = random.choice(emergency_quotes)
+        
+        fallback_response = {
+            "type": "quote_response",
+            "success": True,
+            "quote": quote_text,
+            "author": author,
+            "timestamp": datetime.now().isoformat()
+        }
+        await manager.send_personal_message(json.dumps(fallback_response), websocket)
+
+
 # Global function to handle LLM streaming (moved outside WebSocket handler to prevent duplicates)
 async def handle_llm_streaming(user_message: str, session_id: str, websocket: WebSocket, persona: str = "developer"):
     """Handle LLM streaming response and send to Murf WebSocket for TTS"""
@@ -716,6 +834,14 @@ async def audio_stream_websocket(websocket: WebSocket):
                                     location = command_data.get("location")
                                     if location and location.strip():
                                         logger.info(f"Weather request for location: {location}")
+                                        # Send immediate feedback about location detection
+                                        location_detected_message = {
+                                            "type": "weather_location_detected",
+                                            "message": f"Location detected: {location.strip()}. Fetching weather data...",
+                                            "location": location.strip(),
+                                            "timestamp": datetime.now().isoformat()
+                                        }
+                                        await manager.send_personal_message(json.dumps(location_detected_message), websocket)
                                         await handle_weather_request(location.strip(), session_id, websocket)
                                     else:
                                         error_message = {
@@ -724,6 +850,12 @@ async def audio_stream_websocket(websocket: WebSocket):
                                             "timestamp": datetime.now().isoformat()
                                         }
                                         await manager.send_personal_message(json.dumps(error_message), websocket)
+                                    continue
+                                
+                                elif command_type == "get_quote":
+                                    # Handle motivational quote request
+                                    logger.info(f"Quote request for session: {session_id}")
+                                    await handle_quote_request(session_id, websocket)
                                     continue
                         except json.JSONDecodeError:
                             # Not JSON, treat as regular command

@@ -65,6 +65,22 @@
           </div>
 
           <div class="controls">
+            <!-- Weather instruction panel -->
+            <div
+              id="weatherInstructionPanel"
+              class="weather-instruction-panel"
+              style="display: none"
+            >
+              <div class="instruction-content">
+                <div class="instruction-icon">🎤</div>
+                <h4>Weather Mode Active</h4>
+                <p><strong>Only speak the location name</strong></p>
+                <p class="instruction-examples">
+                  Examples: "Mumbai", "New York", "London", "Tokyo"
+                </p>
+              </div>
+            </div>
+
             <div class="persona-selection">
               <label for="personaSelect">AI Persona:</label>
               <select id="personaSelect" class="persona-dropdown">
@@ -78,9 +94,19 @@
 
             <div class="button-group">
               <button
+                id="getMotivationBtn"
+                class="btn secondary motivation-btn"
+                data-state="ready"
+                data-tooltip="Get an inspiring motivational quote!"
+              >
+                <span class="btn-icon">💪</span>
+                <span class="btn-text">Get Motivation</span>
+              </button>
+              <button
                 id="getWeatherBtn"
                 class="btn secondary weather-btn"
                 data-state="ready"
+                title="Click to activate weather mode - you'll only need to speak the location name"
               >
                 <span class="btn-icon">🌤️</span>
                 <span class="btn-text">Get Weather Info</span>
