@@ -19,15 +19,6 @@ document.addEventListener("DOMContentLoaded", function () {
   const modalQuestionContent = document.getElementById("modalQuestionContent");
   const modalResponseContent = document.getElementById("modalResponseContent");
 
-  // Config modal elements
-  const configBtn = document.getElementById("configBtn");
-  const configModal = document.getElementById("configModal");
-  const closeConfigModalBtn = document.getElementById("closeConfigModal");
-  const saveConfigBtn = document.getElementById("saveConfigBtn");
-  const testConfigBtn = document.getElementById("testConfigBtn");
-  const configCancelBtn = document.getElementById("configCancelBtn");
-  const configStatus = document.getElementById("configStatus");
-
   // Audio streaming variables
   let audioStreamSocket;
   let audioStreamRecorder;
@@ -48,18 +39,8 @@ document.addEventListener("DOMContentLoaded", function () {
   const connectionStatus = document.getElementById("connectionStatus");
   const streamingSessionId = document.getElementById("streamingSessionId");
 
-  // API key notice elements
-  const apiKeyNotice = document.getElementById("apiKeyNotice");
-  const openConfigFromNotice = document.getElementById("openConfigFromNotice");
-
   // Initialize session
   initializeSession();
-
-  // Load API keys from local storage and check status
-  loadApiKeysFromLocalStorage();
-
-  // Check API keys on page load
-  checkApiKeysStatus();
 
   // Event listeners
   if (toggleChatHistoryBtn) {
@@ -134,28 +115,6 @@ document.addEventListener("DOMContentLoaded", function () {
     modalCloseBtn.addEventListener("click", closeModal);
   }
 
-  // Config modal event listeners
-  if (configBtn) {
-    configBtn.addEventListener("click", openConfigModal);
-  }
-  if (closeConfigModalBtn) {
-    closeConfigModalBtn.addEventListener("click", closeConfigModal);
-  }
-  if (saveConfigBtn) {
-    saveConfigBtn.addEventListener("click", saveApiConfig);
-  }
-  if (testConfigBtn) {
-    testConfigBtn.addEventListener("click", testApiConfig);
-  }
-  if (configCancelBtn) {
-    configCancelBtn.addEventListener("click", closeConfigModal);
-  }
-
-  // API key notice event listener
-  if (openConfigFromNotice) {
-    openConfigFromNotice.addEventListener("click", openConfigModal);
-  }
-
   // Close modal when clicking outside
   if (conversationModal) {
     conversationModal.addEventListener("click", function (e) {
@@ -165,24 +124,14 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // Close config modal when clicking outside
-  if (configModal) {
-    configModal.addEventListener("click", function (e) {
-      if (e.target === configModal) {
-        closeConfigModal();
-      }
-    });
-  }
-
   // Close modal with Escape key
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") {
-      if (conversationModal && conversationModal.style.display !== "none") {
-        closeModal();
-      }
-      if (configModal && configModal.style.display !== "none") {
-        closeConfigModal();
-      }
+    if (
+      e.key === "Escape" &&
+      conversationModal &&
+      conversationModal.style.display !== "none"
+    ) {
+      closeModal();
     }
   });
 
@@ -242,23 +191,8 @@ document.addEventListener("DOMContentLoaded", function () {
     if (audioStreamBtn) {
       audioStreamBtn.addEventListener("click", function () {
         const state = this.getAttribute("data-state");
-        if (state === "disabled") {
-          // Open config modal if button is disabled due to missing API keys
-          updateStreamingStatus(
-            "⚠️ Please configure your API keys first",
-            "warning"
-          );
-          openConfigModal();
-          return;
-        }
-
         if (state === "ready") {
-          // Check API keys before starting streaming
-          checkApiKeysBeforeOperation().then((isValid) => {
-            if (isValid) {
-              startAudioStreaming();
-            }
-          });
+          startAudioStreaming();
         } else if (state === "recording") {
           stopAudioStreaming();
         }
@@ -266,25 +200,18 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     resetStreamingState();
-    // Check API keys and update button state
-    updateStreamingButtonState();
   }
 
   // Weather functionality
   let isWeatherMode = false; // Track if we're in weather listening mode
 
   function handleWeatherRequest() {
-    // Check API keys before weather functionality
-    checkApiKeysBeforeOperation().then((isValid) => {
-      if (!isValid) return;
-
-      // Instead of prompt, activate weather listening mode
-      if (!isWeatherMode) {
-        activateWeatherListeningMode();
-      } else {
-        deactivateWeatherListeningMode();
-      }
-    });
+    // Instead of prompt, activate weather listening mode
+    if (!isWeatherMode) {
+      activateWeatherListeningMode();
+    } else {
+      deactivateWeatherListeningMode();
+    }
   }
 
   // Enhanced location extraction function for JavaScript
@@ -484,11 +411,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Motivation functionality
   async function handleMotivationRequest() {
-    // Check API keys before motivation functionality
-    if (!(await checkApiKeysBeforeOperation())) {
-      return;
-    }
-
     const motivationBtn = document.getElementById("getMotivationBtn");
 
     try {
@@ -942,427 +864,14 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // ==================== CONFIG MODAL FUNCTIONALITY ====================
-
-  function openConfigModal() {
-    if (configModal) {
-      configModal.style.display = "flex";
-      document.body.style.overflow = "hidden"; // Prevent background scrolling
-
-      // Add a slight delay to ensure proper rendering
-      setTimeout(() => {
-        configModal.style.opacity = "1";
-        loadCurrentConfig();
-      }, 10);
-    }
-  }
-
-  function closeConfigModal() {
-    if (configModal) {
-      configModal.style.opacity = "0";
-      setTimeout(() => {
-        configModal.style.display = "none";
-        document.body.style.overflow = ""; // Restore scrolling
-        hideConfigStatus();
-        // Recheck API keys when modal is closed
-        checkApiKeysStatus();
-      }, 200);
-    }
-  }
-
-  async function loadCurrentConfig() {
-    try {
-      const response = await fetch("/api/config");
-      if (response.ok) {
-        const config = await response.json();
-
-        // Don't populate actual keys for security, just indicate if they exist
-        document.getElementById("geminiApiKey").placeholder =
-          config.gemini_api_key
-            ? "Current key set (***)"
-            : "Enter your Gemini API key";
-        document.getElementById("assemblyaiApiKey").placeholder =
-          config.assemblyai_api_key
-            ? "Current key set (***)"
-            : "Enter your AssemblyAI API key";
-        document.getElementById("murfApiKey").placeholder = config.murf_api_key
-          ? "Current key set (***)"
-          : "Enter your Murf API key";
-        document.getElementById("openweatherApiKey").placeholder =
-          config.openweather_api_key
-            ? "Current key set (***)"
-            : "Enter your OpenWeather API key";
-        document.getElementById("mongodbUrl").placeholder = config.mongodb_url
-          ? "Current URL set (***)"
-          : "Enter your MongoDB connection URL";
-
-        // Set voice ID if available
-        if (config.murf_voice_id) {
-          document.getElementById("murfVoiceId").value = config.murf_voice_id;
-        }
-      }
-    } catch (error) {
-      console.error("Error loading config:", error);
-      showConfigStatus("Error loading current configuration", "error");
-    }
-  }
-
-  async function saveApiConfig() {
-    try {
-      const config = {
-        gemini_api_key:
-          document.getElementById("geminiApiKey").value.trim() || null,
-        assemblyai_api_key:
-          document.getElementById("assemblyaiApiKey").value.trim() || null,
-        murf_api_key:
-          document.getElementById("murfApiKey").value.trim() || null,
-        murf_voice_id:
-          document.getElementById("murfVoiceId").value.trim() || "en-IN-aarav",
-        openweather_api_key:
-          document.getElementById("openweatherApiKey").value.trim() || null,
-        mongodb_url: document.getElementById("mongodbUrl").value.trim() || null,
-      };
-
-      // Validate required fields
-      const requiredFields = [
-        { field: "gemini_api_key", name: "Gemini API Key" },
-        { field: "assemblyai_api_key", name: "AssemblyAI API Key" },
-        { field: "murf_api_key", name: "Murf API Key" },
-      ];
-
-      const missingFields = requiredFields.filter(
-        (item) => !config[item.field]
-      );
-      if (missingFields.length > 0) {
-        const missingNames = missingFields.map((item) => item.name).join(", ");
-        showConfigStatus(
-          `Please provide the following required API keys: ${missingNames}`,
-          "error"
-        );
-        return;
-      }
-
-      // Show loading state
-      saveConfigBtn.disabled = true;
-      saveConfigBtn.textContent = "Saving...";
-
-      const response = await fetch("/api/config", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(config),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          // Save API keys to local storage
-          saveApiKeysToLocalStorage(config);
-
-          if (result.services_initialized) {
-            showConfigStatus(
-              "✅ Configuration saved successfully! All services are now active and ready to use.",
-              "success"
-            );
-            // Hide API key notice if it was showing
-            if (apiKeyNotice) {
-              apiKeyNotice.style.display = "none";
-            }
-            // Enable streaming button
-            updateStreamingButtonState(true);
-            
-            // Close the modal after successful save
-            setTimeout(() => {
-              closeConfigModal();
-            }, 1500); // Give user time to see success message
-            
-          } else {
-            const missingKeys = result.missing_keys.join(", ");
-            showConfigStatus(
-              `⚠️ Configuration saved but missing keys: ${missingKeys}. Voice agent will not function until all required keys are provided.`,
-              "warning"
-            );
-            // Keep showing API key notice
-            if (apiKeyNotice) {
-              apiKeyNotice.style.display = "block";
-            }
-            // Keep streaming button disabled
-            updateStreamingButtonState(false);
-            
-            // Still close the modal even with warning, but after longer delay
-            setTimeout(() => {
-              closeConfigModal();
-            }, 2500);
-          }
-
-          // Clear the form fields for security
-          document.getElementById("geminiApiKey").value = "";
-          document.getElementById("assemblyaiApiKey").value = "";
-          document.getElementById("murfApiKey").value = "";
-          document.getElementById("openweatherApiKey").value = "";
-          document.getElementById("mongodbUrl").value = "";
-
-          // Update placeholders to show keys are set
-          setTimeout(() => {
-            loadCurrentConfig();
-          }, 1000);
-        } else {
-          showConfigStatus(`Error: ${result.message}`, "error");
-        }
-      } else {
-        throw new Error(`HTTP ${response.status}`);
-      }
-    } catch (error) {
-      console.error("Error saving config:", error);
-      showConfigStatus(
-        "Error saving configuration. Please try again.",
-        "error"
-      );
-    } finally {
-      saveConfigBtn.disabled = false;
-      saveConfigBtn.textContent = "Save Configuration";
-    }
-  }
-
-  async function testApiConfig() {
-    try {
-      testConfigBtn.disabled = true;
-      testConfigBtn.textContent = "Testing...";
-
-      const response = await fetch("/api/config/status");
-      if (response.ok) {
-        const status = await response.json();
-
-        if (status.keys_valid) {
-          const servicesList = Object.entries(status.services)
-            .filter(([key, value]) => value)
-            .map(([key, value]) => key)
-            .join(", ");
-
-          showConfigStatus(
-            `✅ Configuration is valid! Active services: ${servicesList}`,
-            "success"
-          );
-        } else {
-          const missingKeys = status.missing_keys.join(", ");
-          showConfigStatus(
-            `❌ Missing required API keys: ${missingKeys}. Voice agent cannot function without these keys.`,
-            "error"
-          );
-        }
-      } else {
-        throw new Error(`HTTP ${response.status}`);
-      }
-    } catch (error) {
-      console.error("Error testing config:", error);
-      showConfigStatus(
-        "Error testing configuration. Please try again.",
-        "error"
-      );
-    } finally {
-      testConfigBtn.disabled = false;
-      testConfigBtn.textContent = "Test Services";
-    }
-  }
-
-  function showConfigStatus(message, type) {
-    if (configStatus) {
-      const statusMessage = configStatus.querySelector(".status-message");
-      if (statusMessage) {
-        statusMessage.textContent = message;
-      }
-
-      configStatus.className = `config-status ${type}`;
-      configStatus.style.display = "block";
-
-      // Auto-hide success messages after 5 seconds
-      if (type === "success") {
-        setTimeout(() => {
-          hideConfigStatus();
-        }, 5000);
-      }
-    }
-  }
-
-  function hideConfigStatus() {
-    if (configStatus) {
-      configStatus.style.display = "none";
-    }
-  }
-
   function showMessage(message, type) {
     // Simple console log for now - can be enhanced with UI notifications
   }
 
   // ==================== AUDIO STREAMING FUNCTIONALITY ====================
 
-  // Add API key status checking function
-  async function checkApiKeysStatus() {
-    try {
-      const response = await fetch("/api/config/status");
-      if (response.ok) {
-        const status = await response.json();
-        if (apiKeyNotice) {
-          if (!status.keys_valid) {
-            apiKeyNotice.style.display = "block";
-          } else {
-            apiKeyNotice.style.display = "none";
-          }
-        }
-        // Update streaming button state based on API key status
-        updateStreamingButtonState(status.keys_valid);
-      }
-    } catch (error) {
-      console.error("Error checking API keys status:", error);
-      if (apiKeyNotice) {
-        apiKeyNotice.style.display = "block";
-      }
-      // Disable streaming button on error
-      updateStreamingButtonState(false);
-    }
-  }
-
-  // Add API key validation function
-  async function checkApiKeysBeforeOperation() {
-    try {
-      const response = await fetch("/api/config/status");
-      if (response.ok) {
-        const status = await response.json();
-        if (!status.keys_valid) {
-          const missingKeys = status.missing_keys.join(", ");
-          showConfigStatus(
-            `❌ Cannot start voice agent. Missing required API keys: ${missingKeys}. Please configure your API keys first.`,
-            "error"
-          );
-          openConfigModal(); // Automatically open config modal
-          return false;
-        }
-        return true;
-      }
-    } catch (error) {
-      console.error("Error checking API keys:", error);
-      showConfigStatus(
-        "❌ Error checking API key configuration. Please ensure your API keys are properly configured.",
-        "error"
-      );
-      openConfigModal();
-      return false;
-    }
-  }
-
-  // Local Storage API Key Management
-  function saveApiKeysToLocalStorage(apiKeys) {
-    try {
-      localStorage.setItem("voiceAgentApiKeys", JSON.stringify(apiKeys));
-      console.log("API keys saved to local storage");
-    } catch (error) {
-      console.error("Error saving API keys to local storage:", error);
-    }
-  }
-
-  function loadApiKeysFromLocalStorage() {
-    try {
-      const savedKeys = localStorage.getItem("voiceAgentApiKeys");
-      if (savedKeys) {
-        const apiKeys = JSON.parse(savedKeys);
-        console.log("API keys loaded from local storage");
-        // Auto-populate the config modal if it exists
-        populateConfigModal(apiKeys);
-        // Send keys to backend
-        sendApiKeysToBackend(apiKeys);
-        return apiKeys;
-      }
-    } catch (error) {
-      console.error("Error loading API keys from local storage:", error);
-    }
-    return null;
-  }
-
-  function clearApiKeysFromLocalStorage() {
-    try {
-      localStorage.removeItem("voiceAgentApiKeys");
-      console.log("API keys cleared from local storage");
-    } catch (error) {
-      console.error("Error clearing API keys from local storage:", error);
-    }
-  }
-
-  async function sendApiKeysToBackend(apiKeys) {
-    try {
-      const response = await fetch("/api/config", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(apiKeys),
-      });
-
-      if (response.ok) {
-        console.log("API keys sent to backend successfully");
-        // Recheck status after sending keys
-        checkApiKeysStatus();
-      }
-    } catch (error) {
-      console.error("Error sending API keys to backend:", error);
-    }
-  }
-
-  function populateConfigModal(apiKeys) {
-    if (apiKeys.gemini_api_key) {
-      const geminiField = document.getElementById("geminiApiKey");
-      if (geminiField) geminiField.value = apiKeys.gemini_api_key;
-    }
-    if (apiKeys.assemblyai_api_key) {
-      const assemblyaiField = document.getElementById("assemblyaiApiKey");
-      if (assemblyaiField) assemblyaiField.value = apiKeys.assemblyai_api_key;
-    }
-    if (apiKeys.murf_api_key) {
-      const murfField = document.getElementById("murfApiKey");
-      if (murfField) murfField.value = apiKeys.murf_api_key;
-    }
-    if (apiKeys.openweather_api_key) {
-      const weatherField = document.getElementById("openweatherApiKey");
-      if (weatherField) weatherField.value = apiKeys.openweather_api_key;
-    }
-  }
-
-  // Streaming Button State Management
-  function updateStreamingButtonState(keysValid = false) {
-    const audioStreamBtn = document.getElementById("audioStreamBtn");
-    if (audioStreamBtn) {
-      if (!keysValid) {
-        // Disable the button when API keys are not valid
-        audioStreamBtn.disabled = true;
-        audioStreamBtn.classList.add("disabled");
-        audioStreamBtn.innerHTML = `
-          <span class="btn-icon">🔒</span>
-          <span class="btn-text">API Keys Required</span>
-        `;
-        audioStreamBtn.setAttribute("data-state", "disabled");
-        audioStreamBtn.title =
-          "Please configure your API keys to use voice streaming";
-      } else {
-        // Enable the button when API keys are valid
-        audioStreamBtn.disabled = false;
-        audioStreamBtn.classList.remove("disabled");
-        audioStreamBtn.innerHTML = `
-          <span class="btn-icon">🎤</span>
-          <span class="btn-text">Start Voice Streaming</span>
-        `;
-        audioStreamBtn.setAttribute("data-state", "ready");
-        audioStreamBtn.title = "Start voice streaming";
-      }
-    }
-  }
-
   async function startAudioStreaming() {
     try {
-      // Check API keys before starting
-      if (!(await checkApiKeysBeforeOperation())) {
-        return; // Don't start if API keys are missing
-      }
-
       // Reset streaming state and UI
       resetStreamingState();
 
@@ -1392,19 +901,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
       audioStreamSocket.onmessage = function (event) {
         const data = JSON.parse(event.data);
-
-        // Handle API keys required message
-        if (data.type === "api_keys_required") {
-          updateStreamingStatus("❌ " + data.message, "error");
-          showConfigStatus(
-            data.message + " Missing keys: " + data.missing_keys.join(", "),
-            "error"
-          );
-          openConfigModal();
-          resetStreamingState();
-          updateStreamingButtonState(false); // Disable button when API keys are missing
-          return;
-        }
 
         if (data.type === "audio_stream_ready") {
           updateStreamingStatus(

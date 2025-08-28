@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, UploadFile, File, Path, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, Path, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -51,36 +51,55 @@ assemblyai_streaming_service: AssemblyAIStreamingService = None
 murf_websocket_service: MurfWebSocketService = None
 weather_service: WeatherService = None
 
+# Global variable to store current API config
+current_api_config: APIKeyConfig = None
+
 
 def initialize_services() -> APIKeyConfig:
-    """Initialize all services with API keys"""
-    config = APIKeyConfig(
-        gemini_api_key=os.getenv("GEMINI_API_KEY"),
-        assemblyai_api_key=os.getenv("ASSEMBLYAI_API_KEY"),
-        murf_api_key=os.getenv("MURF_API_KEY"),
-        murf_voice_id=os.getenv("MURF_VOICE_ID", "en-IN-aarav"),
-        mongodb_url=os.getenv("MONGODB_URL"),
-        openweather_api_key=os.getenv("OPENWEATHER_API_KEY")
-    )
+    """Initialize all services with API keys - user-provided keys only"""
+    global current_api_config
+    
+    # Use current config if available, otherwise start with empty config
+    if current_api_config:
+        config = current_api_config
+    else:
+        # No fallback to environment variables for critical services
+        config = APIKeyConfig(
+            gemini_api_key=None,
+            assemblyai_api_key=None,
+            murf_api_key=None,
+            murf_voice_id="en-IN-aarav",
+            mongodb_url=os.getenv("MONGODB_URL"),  # MongoDB can still use env
+            openweather_api_key=None
+        )
     
     global stt_service, llm_service, tts_service, database_service, assemblyai_streaming_service, murf_websocket_service, weather_service
+    
+    # Only initialize services if user has provided valid keys
     if config.are_keys_valid:
         stt_service = STTService(config.assemblyai_api_key)
         llm_service = LLMService(config.gemini_api_key)
         tts_service = TTSService(config.murf_api_key, config.murf_voice_id)
         assemblyai_streaming_service = AssemblyAIStreamingService(config.assemblyai_api_key)
         murf_websocket_service = MurfWebSocketService(config.murf_api_key, config.murf_voice_id)
-        logger.info("✅ All AI services initialized successfully")
+        logger.info("✅ All AI services initialized successfully with user-provided keys")
     else:
+        # Set all services to None if keys are missing
+        stt_service = None
+        llm_service = None
+        tts_service = None
+        assemblyai_streaming_service = None
+        murf_websocket_service = None
         missing_keys = config.validate_keys()
-        logger.error(f"❌ Missing API keys: {missing_keys}")
+        logger.warning(f"⚠️ AI services NOT initialized - Missing user-provided API keys: {missing_keys}")
     
     # Initialize weather service if API key is available
     if config.openweather_api_key:
         weather_service = WeatherService(config.openweather_api_key)
         logger.info("✅ Weather service initialized successfully")
     else:
-        logger.warning("⚠️ Weather service not initialized - missing OpenWeather API key")
+        weather_service = None
+        logger.warning("⚠️ Weather service not initialized - missing user-provided OpenWeather API key")
     
     database_service = DatabaseService(config.mongodb_url)
     
@@ -196,110 +215,93 @@ async def clear_session_history(session_id: str = Path(..., description="Session
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-# @app.post("/agent/chat/{session_id}", response_model=VoiceChatResponse)
-# async def chat_with_agent(
-#     session_id: str = Path(..., description="Session ID"),
-#     audio: UploadFile = File(..., description="Audio file for voice input")
-# ):
-#     """Chat with the voice agent using audio input"""
-#     transcribed_text = ""
-#     response_text = ""
-#     audio_url = None
-#     temp_audio_path = None
-    
-#     try:
-#         # Validate services availability
-#         config = initialize_services()
-#         if not config.are_keys_valid:
-#             missing_keys = config.validate_keys()
-#             error_message = get_fallback_message(ErrorType.API_KEYS_MISSING)
-#             fallback_audio = await tts_service.generate_fallback_audio(error_message) if tts_service else None
-#             return VoiceChatResponse(
-#                 success=False,
-#                 message=error_message,
-#                 transcription="",
-#                 llm_response=error_message,
-#                 audio_url=fallback_audio,
-#                 session_id=session_id,
-#                 error_type=ErrorType.API_KEYS_MISSING
-#             )
+@app.get("/api/config", response_model=APIKeyConfig)
+async def get_api_config():
+    """Get current API configuration (without exposing actual keys for security)"""
+    try:
+        config = current_api_config or initialize_services()
+        # Return config with masked keys for security
+        return APIKeyConfig(
+            gemini_api_key="***" if config.gemini_api_key else None,
+            assemblyai_api_key="***" if config.assemblyai_api_key else None,
+            murf_api_key="***" if config.murf_api_key else None,
+            murf_voice_id=config.murf_voice_id,
+            mongodb_url="***" if config.mongodb_url else None,
+            openweather_api_key="***" if config.openweather_api_key else None
+        )
+    except Exception as e:
+        logger.error(f"Error getting API config: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.post("/api/config")
+async def update_api_config(config: APIKeyConfig):
+    """Update API configuration with new keys - user-provided keys only"""
+    try:
+        global current_api_config, stt_service, llm_service, tts_service, assemblyai_streaming_service, murf_websocket_service, weather_service
         
-#         # Process audio file
-#         audio_content = await audio.read()
-#         temp_audio_path = f"temp_audio_{session_id}_{uuid.uuid4().hex}.wav"
+        # Store the new config
+        current_api_config = config
         
-#         with open(temp_audio_path, "wb") as temp_file:
-#             temp_file.write(audio_content)
+        # Re-initialize services with new config - only if all critical keys are provided
+        if config.are_keys_valid:
+            stt_service = STTService(config.assemblyai_api_key)
+            llm_service = LLMService(config.gemini_api_key)
+            tts_service = TTSService(config.murf_api_key, config.murf_voice_id)
+            assemblyai_streaming_service = AssemblyAIStreamingService(config.assemblyai_api_key)
+            murf_websocket_service = MurfWebSocketService(config.murf_api_key, config.murf_voice_id)
+            logger.info("✅ AI services updated with new user-provided API keys")
+        else:
+            # If keys are not valid, disable services
+            stt_service = None
+            llm_service = None
+            tts_service = None
+            assemblyai_streaming_service = None
+            murf_websocket_service = None
+            missing_keys = config.validate_keys()
+            logger.warning(f"⚠️ AI services DISABLED - Missing user-provided API keys: {missing_keys}")
         
-#         # Transcribe audio
-#         transcribed_text = await stt_service.transcribe_audio(temp_audio_path)
+        # Update weather service if API key is provided
+        if config.openweather_api_key:
+            weather_service = WeatherService(config.openweather_api_key)
+            logger.info("✅ Weather service updated with new user-provided API key")
+        else:
+            weather_service = None
+            logger.warning("⚠️ Weather service disabled - no user-provided API key")
         
-#         # Generate LLM response with chat history
-#         if not database_service:
-#             chat_history = []
-#             user_save_success = False
-#             assistant_save_success = False
-#         else:
-#             chat_history = await database_service.get_chat_history(session_id)
-            
-#             # Save user message to chat history
-#             user_save_success = await database_service.add_message_to_history(session_id, "user", transcribed_text)
-        
-#         response_text = await llm_service.generate_response(transcribed_text, chat_history)
-        
-#         if database_service:
-#             # Save assistant response to chat history
-#             assistant_save_success = await database_service.add_message_to_history(session_id, "assistant", response_text)
-        
-#         # Generate TTS audio
-#         audio_url = await tts_service.generate_audio(response_text, session_id)
-        
-#         return VoiceChatResponse(
-#             success=True,
-#             message="Voice chat processed successfully",
-#             transcription=transcribed_text,
-#             llm_response=response_text,
-#             audio_url=audio_url,
-#             session_id=session_id
-#         )
-        
-#     except Exception as e:
-#         logger.error(f"Error in chat_with_agent for session {session_id}: {str(e)}")
-        
-#         # Generate appropriate error response based on the stage where error occurred
-#         if not transcribed_text:
-#             error_type = ErrorType.STT_ERROR
-#             error_message = get_fallback_message(ErrorType.STT_ERROR)
-#         elif not response_text:
-#             error_type = ErrorType.LLM_ERROR
-#             error_message = get_fallback_message(ErrorType.LLM_ERROR)
-#         elif not audio_url:
-#             error_type = ErrorType.TTS_ERROR
-#             error_message = get_fallback_message(ErrorType.TTS_ERROR)
-#         else:
-#             error_type = ErrorType.GENERAL_ERROR
-#             error_message = get_fallback_message(ErrorType.GENERAL_ERROR)
-        
-#         fallback_audio = await tts_service.generate_fallback_audio(error_message) if tts_service else None
-        
-#         return VoiceChatResponse(
-#             success=False,
-#             message=error_message,
-#             transcription=transcribed_text,
-#             llm_response=response_text or error_message,
-#             audio_url=fallback_audio,
-#             session_id=session_id,
-#             error_type=error_type
-#         )
-    
-#     finally:
-#         # Clean up temporary file
-#         if temp_audio_path and os.path.exists(temp_audio_path):
-#             try:
-#                 os.remove(temp_audio_path)
-#             except Exception as e:
-#                 logger.warning(f"Failed to delete temp file {temp_audio_path}: {str(e)}")
-        
+        return {
+            "success": True,
+            "message": "API configuration updated successfully",
+            "services_initialized": config.are_keys_valid,
+            "missing_keys": config.validate_keys() if not config.are_keys_valid else []
+        }
+    except Exception as e:
+        logger.error(f"Error updating API config: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.get("/api/config/status")
+async def get_config_status():
+    """Get the status of API configuration and services"""
+    try:
+        config = current_api_config or initialize_services()
+        return {
+            "config_loaded": config is not None,
+            "keys_valid": config.are_keys_valid if config else False,
+            "missing_keys": config.validate_keys() if config else [],
+            "services": {
+                "stt": stt_service is not None,
+                "llm": llm_service is not None,
+                "tts": tts_service is not None,
+                "assemblyai_streaming": assemblyai_streaming_service is not None,
+                "murf_websocket": murf_websocket_service is not None,
+                "weather": weather_service is not None
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error getting config status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
 
 class ConnectionManager:
     def __init__(self):
@@ -709,6 +711,19 @@ async def handle_llm_streaming(user_message: str, session_id: str, websocket: We
 @app.websocket("/ws/audio-stream")
 async def audio_stream_websocket(websocket: WebSocket):
     await manager.connect(websocket)
+    
+    # Check if user has provided necessary API keys
+    if not current_api_config or not current_api_config.are_keys_valid:
+        missing_keys = current_api_config.validate_keys() if current_api_config else ["All API keys required"]
+        error_message = {
+            "type": "api_keys_required",
+            "message": "Please provide your API keys in the configuration to use the voice agent.",
+            "missing_keys": missing_keys,
+            "timestamp": datetime.now().isoformat()
+        }
+        await manager.send_personal_message(json.dumps(error_message), websocket)
+        await websocket.close(code=4000, reason="API keys required")
+        return
     
     # Try to get session_id from query parameters first
     query_params = dict(websocket.query_params)

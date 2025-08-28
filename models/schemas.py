@@ -100,3 +100,12 @@ class APIKeyConfig(BaseModel):
     @property
     def are_keys_valid(self) -> bool:
         return len(self.validate_keys()) == 0
+
+
+class APIKeyUpdateRequest(BaseModel):
+    """Request model for updating API keys"""
+    gemini_api_key: Optional[str] = None
+    assemblyai_api_key: Optional[str] = None
+    murf_api_key: Optional[str] = None
+    murf_voice_id: Optional[str] = None
+    openweather_api_key: Optional[str] = None

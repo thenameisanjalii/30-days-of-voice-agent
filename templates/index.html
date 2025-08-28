@@ -21,6 +21,12 @@
         <p class="subtitle">
           Speak, stream, and listen — AI that responds as you talk
         </p>
+        <div class="header-controls">
+          <button id="configBtn" class="config-btn" title="Configure API Keys">
+            <span class="config-icon">⚙️</span>
+            Config
+          </button>
+        </div>
       </header>
 
       <main class="live-voice-agent-section">
@@ -30,6 +36,19 @@
             Press the mic button and chat freely with your AI assistant. Every
             exchange is captured and stored as part of your session history.
           </p>
+
+          <!-- API Keys Status Notice -->
+          <div id="apiKeyNotice" class="api-key-notice" style="display: none">
+            <div class="notice-content">
+              <span class="notice-icon">⚠️</span>
+              <span class="notice-text"
+                >API keys required to use the voice agent.</span
+              >
+              <button id="openConfigFromNotice" class="notice-btn">
+                Configure Now
+              </button>
+            </div>
+          </div>
 
           <div class="session-info">
             <small
@@ -150,6 +169,120 @@
           </div>
         </div>
       </main>
+    </div>
+
+    <!-- API Configuration Modal -->
+    <div id="configModal" class="modal" style="display: none">
+      <div class="modal-content config-modal">
+        <div class="modal-header">
+          <h3>🔧 API Configuration</h3>
+          <button id="closeConfigModal" class="modal-close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="api-keys-notice">
+            <p>
+              <strong>⚠️ API Keys Required:</strong> You must provide your own
+              API keys to use this voice agent. The system will not function
+              without them.
+            </p>
+          </div>
+          <div class="config-form-container">
+            <div class="config-form">
+              <div class="config-section">
+                <h4>🤖 AI & Speech Services (Required)</h4>
+                <div class="form-group">
+                  <label for="geminiApiKey"
+                    >Gemini API Key: <span class="required">*</span></label
+                  >
+                  <input
+                    type="password"
+                    id="geminiApiKey"
+                    placeholder="Enter your Gemini API key"
+                    required
+                  />
+                  <small>For LLM (Language Model) responses</small>
+                </div>
+                <div class="form-group">
+                  <label for="assemblyaiApiKey"
+                    >AssemblyAI API Key: <span class="required">*</span></label
+                  >
+                  <input
+                    type="password"
+                    id="assemblyaiApiKey"
+                    placeholder="Enter your AssemblyAI API key"
+                    required
+                  />
+                  <small>For Speech-to-Text transcription</small>
+                </div>
+                <div class="form-group">
+                  <label for="murfApiKey"
+                    >Murf API Key: <span class="required">*</span></label
+                  >
+                  <input
+                    type="password"
+                    id="murfApiKey"
+                    placeholder="Enter your Murf API key"
+                    required
+                  />
+                  <small>For Text-to-Speech generation</small>
+                </div>
+                <div class="form-group">
+                  <label for="murfVoiceId">Murf Voice ID:</label>
+                  <input
+                    type="text"
+                    id="murfVoiceId"
+                    placeholder="e.g., en-IN-aarav"
+                    value="en-IN-aarav"
+                  />
+                  <small>Voice ID for TTS generation</small>
+                </div>
+              </div>
+
+              <div class="config-section">
+                <h4>🌤️ Additional Services (Optional)</h4>
+                <div class="form-group">
+                  <label for="openweatherApiKey">OpenWeather API Key:</label>
+                  <input
+                    type="password"
+                    id="openweatherApiKey"
+                    placeholder="Enter your OpenWeather API key"
+                  />
+                  <small>For weather information (optional)</small>
+                </div>
+                <div class="form-group">
+                  <label for="mongodbUrl">MongoDB URL:</label>
+                  <input
+                    type="password"
+                    id="mongodbUrl"
+                    placeholder="Enter your MongoDB connection URL"
+                  />
+                  <small
+                    >For chat history storage (optional - defaults to local
+                    storage)</small
+                  >
+                </div>
+              </div>
+
+              <div
+                class="config-status"
+                id="configStatus"
+                style="display: none"
+              >
+                <div class="status-message"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="saveConfigBtn" class="btn primary">
+            Save Configuration
+          </button>
+          <button id="testConfigBtn" class="btn secondary">
+            Test Services
+          </button>
+          <button id="configCancelBtn" class="btn secondary">Cancel</button>
+        </div>
+      </div>
     </div>
 
     <!-- Conversation Detail Modal -->
