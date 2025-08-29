@@ -1366,8 +1366,13 @@ document.addEventListener("DOMContentLoaded", function () {
       clearPreviousTranscriptions();
 
       // Connect to WebSocket with session ID
+      const baseUrl =
+        window.location.hostname === "localhost"
+          ? "ws://localhost:8000"
+          : "wss://three0-days-of-voice-agent-53lt.onrender.com";
+
       audioStreamSocket = new WebSocket(
-        `ws://localhost:8000/ws/audio-stream?session_id=${sessionId}`
+        `${baseUrl}/ws/audio-stream?session_id=${sessionId}`
       );
 
       audioStreamSocket.onopen = function (event) {
