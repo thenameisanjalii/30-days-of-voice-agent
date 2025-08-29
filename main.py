@@ -12,7 +12,6 @@ from dotenv import load_dotenv
 import aiohttp
 
 from models.schemas import (
-    VoiceChatResponse, 
     ChatHistoryResponse, 
     BackendStatusResponse,
     APIKeyConfig,
@@ -26,7 +25,6 @@ from services.assemblyai_streaming_service import AssemblyAIStreamingService
 from services.murf_websocket_service import MurfWebSocketService
 from services.weather_service import WeatherService
 from utils.logging_config import setup_logging, get_logger
-from utils.constants import get_fallback_message
 
 # Load environment variables
 load_dotenv()

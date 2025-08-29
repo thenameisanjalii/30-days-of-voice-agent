@@ -1,7 +1,6 @@
 import asyncio
 import websockets
 import json
-import base64
 import uuid
 from typing import Optional, AsyncGenerator
 import logging

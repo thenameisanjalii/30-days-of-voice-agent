@@ -992,9 +992,6 @@ document.addEventListener("DOMContentLoaded", function () {
           config.openweather_api_key
             ? "Current key set (***)"
             : "Enter your OpenWeather API key";
-        document.getElementById("mongodbUrl").placeholder = config.mongodb_url
-          ? "Current URL set (***)"
-          : "Enter your MongoDB connection URL";
 
         // Set voice ID if available
         if (config.murf_voice_id) {
@@ -1020,7 +1017,6 @@ document.addEventListener("DOMContentLoaded", function () {
           document.getElementById("murfVoiceId").value.trim() || "en-IN-aarav",
         openweather_api_key:
           document.getElementById("openweatherApiKey").value.trim() || null,
-        mongodb_url: document.getElementById("mongodbUrl").value.trim() || null,
       };
 
       // Validate required fields
@@ -1071,12 +1067,11 @@ document.addEventListener("DOMContentLoaded", function () {
             }
             // Enable streaming button
             updateStreamingButtonState(true);
-            
+
             // Close the modal after successful save
             setTimeout(() => {
               closeConfigModal();
             }, 1500); // Give user time to see success message
-            
           } else {
             const missingKeys = result.missing_keys.join(", ");
             showConfigStatus(
@@ -1089,7 +1084,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
             // Keep streaming button disabled
             updateStreamingButtonState(false);
-            
+
             // Still close the modal even with warning, but after longer delay
             setTimeout(() => {
               closeConfigModal();
@@ -1101,7 +1096,6 @@ document.addEventListener("DOMContentLoaded", function () {
           document.getElementById("assemblyaiApiKey").value = "";
           document.getElementById("murfApiKey").value = "";
           document.getElementById("openweatherApiKey").value = "";
-          document.getElementById("mongodbUrl").value = "";
 
           // Update placeholders to show keys are set
           setTimeout(() => {
