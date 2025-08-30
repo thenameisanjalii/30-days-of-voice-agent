@@ -252,7 +252,11 @@ This starts the server with auto-reload enabled for development.
 
 ## 📸 Screenshots & Demo
 
-> **Coming Soon**: Screenshots and demo GIFs showcasing the voice agent interface and real-time streaming capabilities.
+<img width="1916" height="961" alt="Screenshot 2025-08-30 072730" src="https://github.com/user-attachments/assets/f3f513c7-8f95-4e70-bfc6-9d97272130e5" />
+
+<img width="1863" height="860" alt="Screenshot 2025-08-28 205427" src="https://github.com/user-attachments/assets/fd8c7a8b-336e-4664-9fc7-3e6b9300ac7e" />
+
+
 
 ## 🛠️ Technologies Used
 
